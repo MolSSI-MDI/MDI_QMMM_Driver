@@ -20,6 +20,6 @@ ${LAMMPS_LOC} -mdi "-role ENGINE -name MM -method TCP -port 8022 -hostname local
 ${LAMMPS_LOC} -mdi "-role ENGINE -name MM_SUB -method TCP -port 8022 -hostname localhost" -in lammps_sub.in > lammps_sub.out &
 
 #launch driver
-${DRIVER_LOC} -mdi "-role DRIVER -name driver -method TCP -port 8022" &
+mpirun -n 1 ${DRIVER_LOC} -mdi "-role DRIVER -name driver -method TCP -port 8022" &
 
 wait

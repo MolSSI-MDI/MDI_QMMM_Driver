@@ -20,7 +20,9 @@ include_directories(${MDI_LOCATION})
 # Compile the driver
 
 add_executable(MDI_QMMM_Driver
-               MDI_QMMM_Driver.cpp)
+               MDI_QMMM_Driver.cpp
+	       pw_electrostatics.cpp
+	       pw_electrostatics.h)
 target_link_libraries(MDI_QMMM_Driver mdi
                       ${MPI_LIBRARIES})
 
