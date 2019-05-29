@@ -174,7 +174,7 @@ int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* mass
   double r_nn = 50000.0;
 
   // identify the atomic number of each atom
-  // because MM engines don't directly track this information, use the atomic mass to deterime atomic number
+  // because MM engines don't directly track this information, use the atomic mass to determine atomic number
   double* radii = new double[ntypes+1];
   int* elements = new int[ntypes+1];
   for (int i=0; i < ntypes+1; i++) {
@@ -186,8 +186,11 @@ int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* mass
   double* potential = new double[ngrid];
   double* potential_sum = new double[ngrid];
 
-  for (int igrid = myrank; igrid < ngrid; igrid += nranks) {
+  for (int igrid = 0; igrid < ngrid; igrid += 1) {
     potential[igrid] = 0.0;
+  }
+
+  for (int igrid = myrank; igrid < ngrid; igrid += nranks) {
     double contribution = 0.0;
 
     for (int iatom = 0; iatom < natoms; iatom++) {
@@ -218,9 +221,6 @@ int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* mass
 
   if ( myrank == 0 ) {
     MDI_Send_Command(">POTENTIAL", comm);
-    //for ( int igrid = 0; igrid < ngrid; igrid++ ) {
-    //  potential_sum[igrid] = 0.0;
-    //}
     MDI_Send( potential_sum, ngrid, MDI_DOUBLE, comm );
   }
 
@@ -239,8 +239,6 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
   int nranks;
   MPI_Comm_size(world_comm, &nranks);
 
-  //if ( myrank == 0 ) cout << "Computing electrostatic potential" << endl;
-
   // identify the atomic number of each atom
   // because MM engines don't directly track this information, use the atomic mass to deterime atomic number
   double* radii = new double[ntypes+1];
@@ -251,22 +249,16 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
   }
 
   double side = grid[3] - grid[0];
-  /*
-  double total_density = 0.0;
-  for (int i=0; i < ngrid; i++) {
-    total_density += density[i];
-  }
-  total_density *= side*side*side;
-  cout << "   Total density: " << total_density << endl; 
-  */
 
   // Compute forces on MM atoms
-
   double* force_sum = new double[3*natoms];
+  for (int icoord = 0; icoord < 3*natoms; icoord++) {
+    force_sum[icoord] = 0.0;
+  }
   for (int iatom = myrank; iatom < natoms; iatom += nranks) {
-    force_sum[3*iatom + 0] = 0.0;
-    force_sum[3*iatom + 1] = 0.0;
-    force_sum[3*iatom + 2] = 0.0;
+    //force_sum[3*iatom + 0] = 0.0;
+    //force_sum[3*iatom + 1] = 0.0;
+    //force_sum[3*iatom + 2] = 0.0;
     for (int igrid = 0; igrid < ngrid; igrid++) {
       // WARNING: TEMPORARY - SHOULD REPLACE WITH <VDENSITY
       double grid_volume = side*side*side;
@@ -275,9 +267,6 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
       double dy = coords[3*iatom + 1] - grid[3*igrid + 1];
       double dz = coords[3*iatom + 2] - grid[3*igrid + 2];
       double dr = sqrt(dx*dx + dy*dy + dz*dz);
-      /*if ( iatom == 0 and igrid == 0 ) {
-	cout << "@@@: " << dr << endl;
-	}*/
       double dr3 = dr*dr*dr;
       double dr4 = dr3*dr;
       double dr5 = dr4*dr;
@@ -289,21 +278,11 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
       force_sum[3*iatom + 0] += grid_volume*density[igrid]*fder*dx/dr;
       force_sum[3*iatom + 1] += grid_volume*density[igrid]*fder*dy/dr;
       force_sum[3*iatom + 2] += grid_volume*density[igrid]*fder*dz/dr;
-      //force_mm[3*iatom + 0] += fder*dx/dr;
-      //force_mm[3*iatom + 1] += fder*dy/dr;
-      //force_mm[3*iatom + 2] += fder*dz/dr;
-      /*
-      if (iatom == 0 && igrid == 0) {
-	cout << "   COMP: " << igrid+1 << " " << density[igrid] << " " << fder << " " << radii1 << endl;
-      }
-      */
     }
 
     force_sum[3*iatom + 0] *= charges[iatom];
     force_sum[3*iatom + 1] *= charges[iatom];
     force_sum[3*iatom + 2] *= charges[iatom];
-
-    //cout << iatom <<  " " << force_mm[3*iatom+0] << " " << force_mm[3*iatom+1] << " " << force_mm[3*iatom+2] << endl;
   }
 
 
@@ -341,14 +320,6 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
       forces_mm[3*iatom + 1] = 0.0;
       forces_mm[3*iatom + 2] = 0.0;
   }
-  /*
-  if ( myrank == 0 ) {
-    cout << "FORCE_MM" << endl;
-    for (int i_atom=0; i_atom<natoms; i_atom++) {
-      cout << i_atom << " " << forces_mm[3*i_atom + 0] << " " << forces_mm[3*i_atom + 1] << " " << forces_mm[3*i_atom + 2] << endl;
-    }
-  }
-  */
 
   delete [] radii;
   delete [] elements;

@@ -236,15 +236,6 @@ int main(int argc, char **argv) {
       MDI_Recv(qm_cell, 12, MDI_DOUBLE, qm_comm);
     }
     MPI_Bcast( qm_cell, 12, MPI_DOUBLE, 0, world_comm );
-    /*
-    if ( myrank == 0 ) {
-      cout << "CELL: " << endl;
-      for (int i=0; i<12; i++) {
-	//cout << "   " << qm_cell[i] << " " << mm_cell[i] << endl;
-	cout << "   " << qm_cell[i] << endl;
-      }
-    }
-    */
 
     // Send the MM cell dimensions to the QM engine
     if ( myrank == 0 ) {
@@ -313,7 +304,10 @@ int main(int argc, char **argv) {
     }
 
     // Recenter the coordinates
-    recenter(natoms, world_comm, qm_start, qm_end, qm_cell, mm_coords);
+    if ( myrank == 0 ) {
+      recenter(natoms, world_comm, qm_start, qm_end, qm_cell, mm_coords);
+    }
+    MPI_Bcast( mm_coords, 3*natoms, MPI_DOUBLE, 0, world_comm );
 
     // Send the MM coordinates to the QM engine
     if ( myrank == 0 ) {
@@ -422,18 +416,20 @@ int main(int argc, char **argv) {
     }
 
     // Add the QM forces to the MM forces
-    int i_qm = 0;
-    for (int i_atom=0; i_atom < natoms; i_atom++) {
-      if ( mm_mask[i_atom] != -1 ) {
-	forces_mm[3*i_atom+0] += forces_qm[3*i_qm+0] - mm_force_on_qm_atoms[3*i_qm+0];
-	forces_mm[3*i_atom+1] += forces_qm[3*i_qm+1] - mm_force_on_qm_atoms[3*i_qm+1];
-	forces_mm[3*i_atom+2] += forces_qm[3*i_qm+2] - mm_force_on_qm_atoms[3*i_qm+2];
-	i_qm++;
-      }
-      else {
-	forces_mm[3*i_atom+0] += forces_ec_mm[3*i_atom+0];
-	forces_mm[3*i_atom+1] += forces_ec_mm[3*i_atom+1];
-	forces_mm[3*i_atom+2] += forces_ec_mm[3*i_atom+2];
+    if ( myrank == 0 ) {
+      int i_qm = 0;
+      for (int i_atom=0; i_atom < natoms; i_atom++) {
+	if ( mm_mask[i_atom] != -1 ) {
+	  forces_mm[3*i_atom+0] += forces_qm[3*i_qm+0] - mm_force_on_qm_atoms[3*i_qm+0];
+	  forces_mm[3*i_atom+1] += forces_qm[3*i_qm+1] - mm_force_on_qm_atoms[3*i_qm+1];
+	  forces_mm[3*i_atom+2] += forces_qm[3*i_qm+2] - mm_force_on_qm_atoms[3*i_qm+2];
+	  i_qm++;
+	}
+	else {
+	  forces_mm[3*i_atom+0] += forces_ec_mm[3*i_atom+0];
+	  forces_mm[3*i_atom+1] += forces_ec_mm[3*i_atom+1];
+	  forces_mm[3*i_atom+2] += forces_ec_mm[3*i_atom+2];
+	}
       }
     }
 
