@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
 
   // VARIABLES THAT SHOULD BE READ FROM AN INPUT FILE
   int niterations = 5;  // Number of MD iterations
-  int qmmm_mode = 2;
+  int qmmm_mode = 0;
   int qm_start = 25;
   int qm_end = 27;
 
@@ -150,10 +150,6 @@ int main(int argc, char **argv) {
   }
   MPI_Bcast( grid, 3*ngrid, MPI_DOUBLE, 0, world_comm );
 
-  // Determine the size of the box
-  //cout << "First grid: " << grid[0] << " " << grid[1] << " " << grid[2] << endl;
-  //cout << "Second grid: " << grid[3] << " " << grid[4] << " " << grid[5] << endl;
-
   // Allocate the arrays for the coordinates and forces
   double* mm_coords = new double[3*natoms];
   double* mm_charges = new double[natoms];
@@ -202,46 +198,12 @@ int main(int argc, char **argv) {
   // Perform each iteration of the simulation
   for (int iiteration = 0; iiteration < niterations; iiteration++) {
 
-    // Send the number of QM atoms to the QM engine
-    // NOTE: THIS IS CURRENTLY REQUIRED IN ORDER TO INITIALIZE ARRAYS - SHOULD CHAGE
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">NATOMS", qm_comm);
-      MDI_Send(&natoms_qm, 1, MDI_INT, qm_comm);
-    }
-
-    // Send the number of MM atoms to the QM engine
-    // SHOULD CHANGE THIS
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">MM_NATOMS", qm_comm);
-      MDI_Send(&natoms, 1, MDI_INT, qm_comm);
-    }
-
-    // Send the number of MM atom types to the QM engine
-    // SHOULD NOT BE REQUIRED
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">NTYPES", qm_comm);
-      MDI_Send(&ntypes, 1, MDI_INT, qm_comm);
-    }
-
-    // Receive the MM cell dimensions from the MM engine
-    // SHOULD NOT BE REQUIRED
-    if ( myrank == 0 ) {
-      MDI_Send_Command("<CELL", mm_comm);
-      MDI_Recv(&mm_cell, 9, MDI_DOUBLE, mm_comm);
-    }
-
     // Receive the QM cell dimensions from the QM engine
     if ( myrank == 0 ) {
       MDI_Send_Command("<CELL", qm_comm);
       MDI_Recv(qm_cell, 12, MDI_DOUBLE, qm_comm);
     }
     MPI_Bcast( qm_cell, 12, MPI_DOUBLE, 0, world_comm );
-
-    // Send the MM cell dimensions to the QM engine
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">MM_CELL", qm_comm);
-      MDI_Send(&mm_cell, 9, MDI_DOUBLE, qm_comm);
-    }
 
     // Receive the coordinates from the MM engine
     if ( myrank == 0 ) {
@@ -271,68 +233,17 @@ int main(int argc, char **argv) {
     }
     MPI_Bcast( masses, ntypes+1, MPI_DOUBLE, 0, world_comm );
 
-    // Send the MM mask to the QM engine
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">MM_MASK", qm_comm);
-      MDI_Send(&mm_mask, natoms, MDI_INT, qm_comm);
-    }
-
-    // Send the MM types to the QM engine
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">MM_TYPES", qm_comm);
-      MDI_Send(types, natoms, MDI_INT, qm_comm);
-    }
-
-    // Send the MM charges to the QM engine
-    if ( myrank == 0 ) {
-      //double* temp_charges = new double[natoms];
-      double temp_charges[natoms];
-      for (int iatom=0; iatom<natoms; iatom++) {
-	//temp_charges[iatom] = mm_charges[iatom];
-	temp_charges[iatom] = 0.0;
-      }
-      MDI_Send_Command(">MM_CHARGES", qm_comm);
-      //MDI_Send(mm_charges, natoms, MDI_DOUBLE, qm_comm);
-      MDI_Send(&temp_charges, natoms, MDI_DOUBLE, qm_comm);
-      //delete [] temp_charges;
-    }
-
-    // Send the MM masses to the QM engine
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">MM_MASSES", qm_comm);
-      MDI_Send(masses, ntypes+1, MDI_DOUBLE, qm_comm);
-    }
-
     // Recenter the coordinates
     if ( myrank == 0 ) {
       recenter(natoms, world_comm, qm_start, qm_end, qm_cell, mm_coords);
     }
     MPI_Bcast( mm_coords, 3*natoms, MPI_DOUBLE, 0, world_comm );
 
-    // Send the MM coordinates to the QM engine
-    if ( myrank == 0 ) {
-      MDI_Send_Command(">MM_COORDS", qm_comm);
-      MDI_Send(mm_coords, 3*natoms, MDI_DOUBLE, qm_comm);
-    }
-
     // Send the QM coordinates to the QM engine
-    /*
-    cout.precision(17);
-    cout << "   O: " << mm_coords[3*(qm_start-1)+0] << " " << mm_coords[3*(qm_start-1)+1] << " " << mm_coords[3*(qm_start-1)+2] << endl;
-    cout << "   H: " << mm_coords[3*(qm_start+0)+0] << " " << mm_coords[3*(qm_start+0)+1] << " " << mm_coords[3*(qm_start+0)+2] << endl;
-    cout << "   H: " << mm_coords[3*(qm_start+1)+0] << " " << mm_coords[3*(qm_start+1)+1] << " " << mm_coords[3*(qm_start+1)+2] << endl;
-    */
     if ( myrank == 0 ) {
       MDI_Send_Command(">COORDS", qm_comm);
       MDI_Send(&mm_coords[3*(qm_start-1)], 3*natoms_qm, MDI_DOUBLE, qm_comm);
     }
-
-    // Have the QM process recenter the coordinates
-    /*
-    if ( myrank == 0 ) {
-      MDI_Send_Command("RECENTER", qm_comm);
-    }
-    */
 
     pw_electrostatic_potential(natoms, ntypes, types, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
 			       qm_start, qm_end, qm_charges, forces_ec_mm, qm_comm);
@@ -363,34 +274,6 @@ int main(int argc, char **argv) {
       MDI_Send_Command("<FORCES", qm_comm);
       MDI_Recv(&forces_qm, 3*natoms_qm, MDI_DOUBLE, qm_comm);
     }
-
-    /*
-    if ( qmmm_mode == 2 ) {
-
-      // Get the EC forces on the QM atoms
-      if ( myrank == 0 ) {
-	MDI_Send_Command("<EC_FORCES", qm_comm);
-	MDI_Recv(&forces_ec, 3*natoms_qm, MDI_DOUBLE, qm_comm);
-      }
-
-      // Get the EC forces on the MM atoms
-      if ( myrank == 0 ) {
-
-      for (int i_atom=0; i_atom<natoms; i_atom++) {
-	cout << "BEFORE: " << i_atom << " " << forces_ec_mm[3*i_atom + 0] << " " << forces_ec_mm[3*i_atom + 1] << " " << forces_ec_mm[3*i_atom + 2] << endl;
-      }
-
-	MDI_Send_Command("<MM_FORCES", qm_comm);
-	MDI_Recv(forces_ec_mm, 3*natoms, MDI_DOUBLE, qm_comm);
-
-      for (int i_atom=0; i_atom<natoms; i_atom++) {
-	cout << "AFTER:  " << i_atom << " " << forces_ec_mm[3*i_atom + 0] << " " << forces_ec_mm[3*i_atom + 1] << " " << forces_ec_mm[3*i_atom + 2] << endl;
-      }
-
-      }
-
-    }
-    */
 
     // Send the coordinates to the MM subset engine
     if ( myrank == 0 ) {
