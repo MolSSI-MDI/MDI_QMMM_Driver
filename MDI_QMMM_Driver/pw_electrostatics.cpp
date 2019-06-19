@@ -175,9 +175,9 @@ int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* mass
 
   // identify the atomic number of each atom
   // because MM engines don't directly track this information, use the atomic mass to determine atomic number
-  double* radii = new double[ntypes+1];
-  int* elements = new int[ntypes+1];
-  for (int i=0; i < ntypes+1; i++) {
+  double* radii = new double[natoms];
+  int* elements = new int[natoms];
+  for (int i=0; i < natoms; i++) {
     elements[i] = get_element_from_mass( masses[i] );
     radii[i] = covalent_radii[ elements[i] ];
   }
@@ -203,7 +203,8 @@ int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* mass
       double dr3 = dr*dr*dr;
       double dr4 = dr3*dr;
       double dr5 = dr4*dr;
-      double radii1 = radii[ types[iatom] ];
+      //double radii1 = radii[ types[iatom] ];
+      double radii1 = radii[iatom];
       double radii4 = radii1*radii1*radii1*radii1;
       double radii5 = radii4*radii1;
 
@@ -241,9 +242,9 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
 
   // identify the atomic number of each atom
   // because MM engines don't directly track this information, use the atomic mass to deterime atomic number
-  double* radii = new double[ntypes+1];
-  int* elements = new int[ntypes+1];
-  for (int i=0; i < ntypes+1; i++) {
+  double* radii = new double[natoms];
+  int* elements = new int[natoms];
+  for (int i=0; i < natoms; i++) {
     elements[i] = get_element_from_mass( masses[i] );
     radii[i] = covalent_radii[ elements[i] ];
   }
@@ -270,7 +271,7 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
       double dr3 = dr*dr*dr;
       double dr4 = dr3*dr;
       double dr5 = dr4*dr;
-      double radii1 = radii[ types[iatom] ];
+      double radii1 = radii[ iatom ];
       double radii4 = radii1*radii1*radii1*radii1;
       double radii5 = radii4*radii1;
       double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
@@ -296,7 +297,7 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
       double dr3 = dr*dr*dr;
       double dr4 = dr3*dr;
       double dr5 = dr4*dr;
-      double radii1 = radii[ types[iatom] ];
+      double radii1 = radii[ iatom ];
       double radii4 = radii1*radii1*radii1*radii1;
       double radii5 = radii4*radii1;
       double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );

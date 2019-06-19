@@ -153,7 +153,7 @@ int main(int argc, char **argv) {
   // Allocate the arrays for the coordinates and forces
   double* mm_coords = new double[3*natoms];
   double* mm_charges = new double[natoms];
-  double* masses = new double[ntypes+1];
+  double* masses = new double[natoms];
   double* forces_mm = new double[3*natoms];
   double* qm_coords = new double[3*natoms_qm];
   double* qm_charges = new double[natoms];
@@ -229,9 +229,9 @@ int main(int argc, char **argv) {
     // Receive the masses from the MM engine
     if ( myrank == 0 ) {
       MDI_Send_Command("<MASSES", mm_comm);
-      MDI_Recv(masses, ntypes+1, MDI_DOUBLE, mm_comm);
+      MDI_Recv(masses, natoms, MDI_DOUBLE, mm_comm);
     }
-    MPI_Bcast( masses, ntypes+1, MPI_DOUBLE, 0, world_comm );
+    MPI_Bcast( masses, natoms, MPI_DOUBLE, 0, world_comm );
 
     // Recenter the coordinates
     if ( myrank == 0 ) {
