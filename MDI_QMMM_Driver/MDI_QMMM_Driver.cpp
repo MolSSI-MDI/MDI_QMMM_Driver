@@ -182,14 +182,6 @@ int main(int argc, char **argv) {
     mm_mask[i] = types[i];
   }
 
-  // Send the QMMM mode to QE
-  // SHOULD CHANGE THIS, IF POSSIBLE
-  if ( myrank == 0 ) {
-    MDI_Send_Command(">QMMM_MODE", qm_comm);
-    MDI_Send(&qmmm_mode, 1, MDI_INT, qm_comm);
-  }
-
-
   // Have the MD engine initialize a new MD simulation
   if ( myrank == 0 ) {
     MDI_Send_Command("MD_INIT", mm_comm);
