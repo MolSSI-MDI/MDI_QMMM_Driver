@@ -237,7 +237,7 @@ int main(int argc, char **argv) {
       MDI_Send(&mm_coords[3*(qm_start-1)], 3*natoms_qm, MDI_DOUBLE, qm_comm);
     }
 
-    pw_electrostatic_potential(natoms, ntypes, types, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
+    pw_electrostatic_potential(natoms, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
 			       qm_start, qm_end, qm_charges, forces_ec_mm, qm_comm);
 
     // Have the QM engine perform an SCF calculation
@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
     }
     MPI_Bcast( density, ngrid, MPI_DOUBLE, 0, world_comm );
 
-    pw_electrostatic_forces(natoms, ntypes, types, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
+    pw_electrostatic_forces(natoms, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
 			       qm_start, qm_end, qm_charges, forces_ec_mm);
 
     // Get the QM energy

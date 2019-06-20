@@ -158,7 +158,7 @@ int get_element_from_mass(double mass) {
 }
 
 
-int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* masses, int ngrid, double* grid, double* density, double* coords, double* charges, MPI_Comm world_comm, int qm_start, int qm_end, double* qm_charges, double* forces_mm, MDI_Comm comm ) {
+int pw_electrostatic_potential( int natoms, double* masses, int ngrid, double* grid, double* density, double* coords, double* charges, MPI_Comm world_comm, int qm_start, int qm_end, double* qm_charges, double* forces_mm, MDI_Comm comm ) {
 
   int myrank;
   MPI_Comm_rank(world_comm, &myrank);
@@ -203,7 +203,6 @@ int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* mass
       double dr3 = dr*dr*dr;
       double dr4 = dr3*dr;
       double dr5 = dr4*dr;
-      //double radii1 = radii[ types[iatom] ];
       double radii1 = radii[iatom];
       double radii4 = radii1*radii1*radii1*radii1;
       double radii5 = radii4*radii1;
@@ -233,7 +232,7 @@ int pw_electrostatic_potential( int natoms, int ntypes, int* types, double* mass
 }
 
 
-int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses, int ngrid, double* grid, double* density, double* coords, double* charges, MPI_Comm world_comm, int qm_start, int qm_end, double* qm_charges, double* forces_mm ) {
+int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid, double* density, double* coords, double* charges, MPI_Comm world_comm, int qm_start, int qm_end, double* qm_charges, double* forces_mm ) {
 
   int myrank;
   MPI_Comm_rank(world_comm, &myrank);
@@ -301,7 +300,6 @@ int pw_electrostatic_forces( int natoms, int ntypes, int* types, double* masses,
       double radii4 = radii1*radii1*radii1*radii1;
       double radii5 = radii4*radii1;
       double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
-      //double chargej = double( elements[ types[jatom] ] );
       double chargej = qm_charges[jatom-qm_start+1];
 
       force_sum[3*iatom + 0] -= charges[iatom]*chargej*fder*dx/dr;
