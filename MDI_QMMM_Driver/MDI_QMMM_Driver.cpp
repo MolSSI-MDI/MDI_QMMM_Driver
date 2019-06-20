@@ -103,7 +103,6 @@ int main(int argc, char **argv) {
 
   // Simulation variables
   int natoms, natoms_qm;
-  int ntypes;
   double qm_energy;
   double mm_energy;
 
@@ -113,13 +112,6 @@ int main(int argc, char **argv) {
     MDI_Recv(&natoms, 1, MDI_INT, mm_comm);
   }
   MPI_Bcast( &natoms, 1, MPI_INT, 0, world_comm );
-
-  // Receive the number of MM atom types from the main MM engine
-  if ( myrank == 0 ) {
-    MDI_Send_Command("<NTYPES", mm_comm);
-    MDI_Recv(&ntypes, 1, MDI_INT, mm_comm);
-  }
-  MPI_Bcast( &ntypes, 1, MPI_INT, 0, world_comm );
 
   // Receive the number of QM atoms from the subset MM engine
   if ( myrank == 0 ) {
@@ -140,7 +132,6 @@ int main(int argc, char **argv) {
     MDI_Recv(&ngrid, 1, MDI_INT, qm_comm);
   }
   MPI_Bcast( &ngrid, 1, MPI_INT, 0, world_comm );
-  //cout << "NDENSITY: " << ngrid << endl;
 
   double* grid = new double[3*ngrid];
   double* density = new double[ngrid];
@@ -163,15 +154,7 @@ int main(int argc, char **argv) {
   double mm_force_on_qm_atoms[3*natoms_qm];
   double mm_cell[9];
   double* qm_cell = new double[12];
-  int* types = new int[natoms];
   int mm_mask[natoms];
-
-  // Receive the MM types
-  if ( myrank == 0 ) {
-    MDI_Send_Command("<TYPES", mm_comm);
-    MDI_Recv(types, natoms, MDI_INT, mm_comm);
-  }
-  MPI_Bcast( types, natoms, MPI_INT, 0, world_comm );
 
   // Set the MM mask
   // this is -1 for non-QM atoms, and 1 for QM atoms
@@ -179,7 +162,7 @@ int main(int argc, char **argv) {
     mm_mask[i] = -1;
   }
   for (int i=qm_start-1; i<=qm_end-1; i++) {
-    mm_mask[i] = types[i];
+    mm_mask[i] = 1;
   }
 
   // Have the MD engine initialize a new MD simulation
@@ -338,7 +321,6 @@ int main(int argc, char **argv) {
   delete [] qm_charges;
   delete [] qm_cell;
   delete [] masses;
-  delete [] types;
   delete [] forces_mm;
   delete [] forces_ec_mm;
 
