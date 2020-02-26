@@ -169,7 +169,7 @@ int main(int argc, char **argv) {
 
   // Have the MD engine initialize a new MD simulation
   if ( myrank == 0 ) {
-    MDI_Send_Command("MD_INIT", mm_comm);
+    MDI_Send_Command("@INIT_MD", mm_comm);
   }
 
   // Perform each iteration of the simulation
