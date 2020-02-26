@@ -10,6 +10,7 @@ extern "C" {
 using namespace std;
 
 int main(int argc, char **argv) {
+  int ret;
 
   // Initialize the MPI environment
   MPI_Comm world_comm;
@@ -57,12 +58,13 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(world_comm, &myrank);
 
   // Connect to the engines
-  MDI_Comm mm_comm = MDI_NULL_COMM;
-  MDI_Comm mm_sub_comm = MDI_NULL_COMM;
-  MDI_Comm qm_comm = MDI_NULL_COMM;
+  MDI_Comm mm_comm = MDI_COMM_NULL;
+  MDI_Comm mm_sub_comm = MDI_COMM_NULL;
+  MDI_Comm qm_comm = MDI_COMM_NULL;
   int nengines = 3;
   for (int iengine=0; iengine < nengines; iengine++) {
-    MDI_Comm comm = MDI_Accept_Communicator();
+    MDI_Comm comm;
+    ret = MDI_Accept_Communicator(&comm);
  
     // Determine the name of this engine
     char* engine_name = new char[MDI_NAME_LENGTH];
@@ -77,19 +79,19 @@ int main(int argc, char **argv) {
     }
  
     if ( strcmp(engine_name, "MM") == 0 ) {
-      if ( mm_comm != MDI_NULL_COMM ) {
+      if ( mm_comm != MDI_COMM_NULL ) {
 	throw runtime_error("Accepted a communicator from a second main MM engine.");
       }
       mm_comm = comm;
     }
     else if ( strcmp(engine_name, "QM") == 0 ) {
-      if ( qm_comm != MDI_NULL_COMM ) {
+      if ( qm_comm != MDI_COMM_NULL ) {
 	throw runtime_error("Accepted a communicator from a second QM engine.");
       }
       qm_comm = comm;
     }
     else if ( strcmp(engine_name, "MM_SUB") == 0 ) {
-      if ( mm_sub_comm != MDI_NULL_COMM ) {
+      if ( mm_sub_comm != MDI_COMM_NULL ) {
 	throw runtime_error("Accepted a communicator from a second subset MM engine.");
       }
       mm_sub_comm = comm;
