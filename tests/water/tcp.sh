@@ -12,6 +12,8 @@ fi
 cp -r data work
 cd work
 
+export OMP_NUM_THREADS=1
+
 #launch QE
 mpirun -n 32 ${QE_LOC} -mdi "-role ENGINE -name QM -method TCP -port 8022 -hostname localhost" -in qe.in > qe.out &
 
