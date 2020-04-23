@@ -15,17 +15,12 @@
 /*! \brief MPI communicator corresponding to all processes created by the same code as this process */
 MPI_Comm intra_MPI_comm = 0;
 
-/*! \brief Rank of this process within its associated code */
-//int intra_rank = 0;
-
-/*! \brief Order of this code within all codes represented by MPI_COMM_WORLD */
-int mpi_code_rank = 0;
-
 /*! \brief Size of MPI_COMM_WORLD */
 int world_size = -1;
 
 /*! \brief Rank of this process within MPI_COMM_WORLD */
 int world_rank = -1;
+
 
 /*! \brief Set the size of MPI_COMM_WORLD
  *
@@ -37,6 +32,7 @@ int set_world_size(int world_size_in) {
   return 0;
 }
 
+
 /*! \brief Set the rank of this process in MPI_COMM_WORLD
  *
  * \param [in]       world_rank_in
@@ -46,6 +42,7 @@ int set_world_rank(int world_rank_in) {
   world_rank = world_rank_in;
   return 0;
 }
+
 
 /*! \brief Identify groups of processes belonging to the same codes
  *
@@ -127,6 +124,7 @@ int mpi_identify_codes(const char* code_name, int use_mpi4py, MPI_Comm world_com
   //create communicators
   char* prev_name = malloc( sizeof(char) * MDI_NAME_LENGTH );
   char* my_name = malloc( sizeof(char) * MDI_NAME_LENGTH );
+  int mpi_code_rank = 0;
   for (i=0; i<world_size; i++) {
     memcpy( name, &names[i*MDI_NAME_LENGTH], MDI_NAME_LENGTH );
 
@@ -177,8 +175,16 @@ int mpi_identify_codes(const char* code_name, int use_mpi4py, MPI_Comm world_com
       // only done if this is rank 0 on either the driver or the engine
       if ( world_rank == driver_rank || world_rank == i ) {
 	communicator* new_comm = get_communicator(this_code->id, comm_id);
-	new_comm->mpi_comm = new_mpi_comm;
-	new_comm->mpi_rank = key;
+	new_comm->delete = communicator_delete_mpi;
+	new_comm->send = mpi_send;
+	new_comm->recv = mpi_recv;
+
+	// allocate the method data
+	mpi_method_data* method_data = malloc(sizeof(mpi_method_data));
+	method_data->mpi_comm = new_mpi_comm;
+	method_data->mpi_rank = key;
+	method_data->use_mpi4py = use_mpi4py;
+	new_comm->method_data = method_data;
       }
     }
 
@@ -219,8 +225,8 @@ int mpi_identify_codes(const char* code_name, int use_mpi4py, MPI_Comm world_com
 	version[0] = MDI_MAJOR_VERSION;
 	version[1] = MDI_MINOR_VERSION;
 	version[2] = MDI_PATCH_VERSION;
-	mpi_send(&version[0], 3, MDI_INT, this_comm->id);
-	mpi_recv(&this_comm->mdi_version[0], 3, MDI_INT, this_comm->id);
+	mpi_send(&version[0], 3, MDI_INT, this_comm->id, 0);
+	mpi_recv(&this_comm->mdi_version[0], 3, MDI_INT, this_comm->id, 0);
       }
     }
   }
@@ -249,9 +255,6 @@ int mpi_update_world_comm(void* world_comm) {
 }
 
 
-
-
-
 /*! \brief Send data through an MDI connection, using MPI
  *
  * \param [in]       buf
@@ -262,8 +265,13 @@ int mpi_update_world_comm(void* world_comm) {
  *                   MDI handle (MDI_INT, MDI_DOUBLE, MDI_CHAR, etc.) corresponding to the type of data to be sent.
  * \param [in]       comm
  *                   MDI communicator associated with the intended recipient code.
+ * \param [in]       msg_flag
+ *                   Type of role this data has within a message.
+ *                   0: Not part of a message.
+ *                   1: The header of a message.
+ *                   2: The body (data) of a message.
  */
-int mpi_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
+int mpi_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm, int msg_flag) {
   // only send from rank 0
   code* this_code = get_code(current_code);
   if ( this_code->intra_rank != 0 ) {
@@ -271,6 +279,7 @@ int mpi_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
   }
 
   communicator* this = get_communicator(current_code, comm);
+  mpi_method_data* method_data = (mpi_method_data*) this->method_data;
 
   // determine the datatype of the send buffer
   MPI_Datatype mpi_type;
@@ -283,17 +292,20 @@ int mpi_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
   else if (datatype == MDI_CHAR) {
     mpi_type = MPI_CHAR;
   }
+  else if (datatype == MDI_BYTE) {
+    mpi_type = MPI_BYTE;
+  }
   else {
     mdi_error("MDI data type not recognized in mpi_send");
     return 1;
   }
 
   // send the data
-  if ( this_code->is_python == 0 ) {
-    MPI_Send((void*)buf, count, mpi_type, (this->mpi_rank+1)%2, 0, this->mpi_comm);
+  if ( method_data->use_mpi4py == 0 ) {
+    MPI_Send((void*)buf, count, mpi_type, (method_data->mpi_rank+1)%2, 0, method_data->mpi_comm);
   }
   else {
-    mpi4py_send_callback( (void*)buf, count, datatype, (this->mpi_rank+1)%2, this->id );
+    mpi4py_send_callback( (void*)buf, count, datatype, (method_data->mpi_rank+1)%2, this->id );
   }
 
   return 0;
@@ -310,8 +322,13 @@ int mpi_send(const void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
  *                   MDI handle (MDI_INT, MDI_DOUBLE, MDI_CHAR, etc.) corresponding to the type of data to be received.
  * \param [in]       comm
  *                   MDI communicator associated with the connection to the sending code.
+ * \param [in]       msg_flag
+ *                   Type of role this data has within a message.
+ *                   0: Not part of a message.
+ *                   1: The header of a message.
+ *                   2: The body (data) of a message.
  */
-int mpi_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
+int mpi_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm, int msg_flag) {
   // only recv from rank 0
   code* this_code = get_code(current_code);
   if ( this_code->intra_rank != 0 ) {
@@ -319,6 +336,7 @@ int mpi_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
   }
 
   communicator* this = get_communicator(current_code, comm);
+  mpi_method_data* method_data = (mpi_method_data*) this->method_data;
 
   // determine the datatype of the receive buffer
   MPI_Datatype mpi_type;
@@ -331,18 +349,34 @@ int mpi_recv(void* buf, int count, MDI_Datatype datatype, MDI_Comm comm) {
   else if (datatype == MDI_CHAR) {
     mpi_type = MPI_CHAR;
   }
+  else if (datatype == MDI_BYTE) {
+    mpi_type = MPI_BYTE;
+  }
   else {
     mdi_error("MDI data type not recognized in mpi_send");
     return 1;
   }
 
   // receive the data
-  if ( this_code->is_python == 0 ) {
-    MPI_Recv(buf, count, mpi_type, (this->mpi_rank+1)%2, 0, this->mpi_comm, MPI_STATUS_IGNORE);
+  if ( method_data->use_mpi4py == 0 ) {
+    MPI_Recv(buf, count, mpi_type, (method_data->mpi_rank+1)%2, 0, method_data->mpi_comm, MPI_STATUS_IGNORE);
   }
   else {
-    mpi4py_recv_callback( buf, count, datatype, (this->mpi_rank+1)%2, this->id );
+    mpi4py_recv_callback( buf, count, datatype, (method_data->mpi_rank+1)%2, this->id );
   }
+
+  return 0;
+}
+
+
+/*! \brief Function for MPI-specific deletion operations for communicator deletion
+ */
+int communicator_delete_mpi(void* comm) {
+  communicator* this_comm = (communicator*) comm;
+  mpi_method_data* method_data = (mpi_method_data*) this_comm->method_data;
+
+  // delete the method-specific information
+  free( method_data );
 
   return 0;
 }
