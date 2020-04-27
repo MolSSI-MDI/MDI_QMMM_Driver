@@ -256,69 +256,94 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
     force_sum[icoord] = 0.0;
   }
   for (int iatom = myrank; iatom < natoms; iatom += nranks) {
-    //force_sum[3*iatom + 0] = 0.0;
-    //force_sum[3*iatom + 1] = 0.0;
-    //force_sum[3*iatom + 2] = 0.0;
-    for (int igrid = 0; igrid < ngrid; igrid++) {
-      // WARNING: TEMPORARY - SHOULD REPLACE WITH <VDENSITY
-      double grid_volume = side*side*side;
+    if ( (iatom < qm_start-1) or (iatom > qm_end-1) ) {
+      //force_sum[3*iatom + 0] = 0.0;
+      //force_sum[3*iatom + 1] = 0.0;
+      //force_sum[3*iatom + 2] = 0.0;
+      for (int igrid = 0; igrid < ngrid; igrid++) {
+	// WARNING: TEMPORARY - SHOULD REPLACE WITH <VDENSITY
+	double grid_volume = side*side*side;
 
-      double dx = coords[3*iatom + 0] - grid[3*igrid + 0];
-      double dy = coords[3*iatom + 1] - grid[3*igrid + 1];
-      double dz = coords[3*iatom + 2] - grid[3*igrid + 2];
-      double dr = sqrt(dx*dx + dy*dy + dz*dz);
-      double dr3 = dr*dr*dr;
-      double dr4 = dr3*dr;
-      double dr5 = dr4*dr;
-      double radii1 = radii[ iatom ];
-      double radii4 = radii1*radii1*radii1*radii1;
-      double radii5 = radii4*radii1;
-      double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
+	double dx = coords[3*iatom + 0] - grid[3*igrid + 0];
+	double dy = coords[3*iatom + 1] - grid[3*igrid + 1];
+	double dz = coords[3*iatom + 2] - grid[3*igrid + 2];
+	double dr = sqrt(dx*dx + dy*dy + dz*dz);
+	double dr3 = dr*dr*dr;
+	double dr4 = dr3*dr;
+	double dr5 = dr4*dr;
+	double radii1 = radii[ iatom ];
+	double radii4 = radii1*radii1*radii1*radii1;
+	double radii5 = radii4*radii1;
+	double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
 
-      force_sum[3*iatom + 0] += grid_volume*density[igrid]*fder*dx/dr;
-      force_sum[3*iatom + 1] += grid_volume*density[igrid]*fder*dy/dr;
-      force_sum[3*iatom + 2] += grid_volume*density[igrid]*fder*dz/dr;
+	force_sum[3*iatom + 0] += grid_volume*density[igrid]*fder*dx/dr;
+	force_sum[3*iatom + 1] += grid_volume*density[igrid]*fder*dy/dr;
+	force_sum[3*iatom + 2] += grid_volume*density[igrid]*fder*dz/dr;
+      }
+
+      force_sum[3*iatom + 0] *= charges[iatom];
+      force_sum[3*iatom + 1] *= charges[iatom];
+      force_sum[3*iatom + 2] *= charges[iatom];
     }
-
-    force_sum[3*iatom + 0] *= charges[iatom];
-    force_sum[3*iatom + 1] *= charges[iatom];
-    force_sum[3*iatom + 2] *= charges[iatom];
   }
 
 
 
   for (int iatom = myrank; iatom < natoms; iatom += nranks) {
-    for (int jatom = qm_start-1; jatom <= qm_end-1; jatom++) {
-      double dx = coords[3*iatom + 0] - coords[3*jatom + 0];
-      double dy = coords[3*iatom + 1] - coords[3*jatom + 1];
-      double dz = coords[3*iatom + 2] - coords[3*jatom + 2];
-      double dr = sqrt(dx*dx + dy*dy + dz*dz);
-      double dr3 = dr*dr*dr;
-      double dr4 = dr3*dr;
-      double dr5 = dr4*dr;
-      double radii1 = radii[ iatom ];
-      double radii4 = radii1*radii1*radii1*radii1;
-      double radii5 = radii4*radii1;
-      double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
-      double chargej = qm_charges[jatom-qm_start+1];
+    if ( (iatom < qm_start-1) or (iatom > qm_end-1) ) {
+      for (int jatom = qm_start-1; jatom <= qm_end-1; jatom++) {
+	double dx = coords[3*iatom + 0] - coords[3*jatom + 0];
+	double dy = coords[3*iatom + 1] - coords[3*jatom + 1];
+	double dz = coords[3*iatom + 2] - coords[3*jatom + 2];
+	double dr = sqrt(dx*dx + dy*dy + dz*dz);
+	double dr3 = dr*dr*dr;
+	double dr4 = dr3*dr;
+	double dr5 = dr4*dr;
+	double radii1 = radii[ iatom ];
+	double radii4 = radii1*radii1*radii1*radii1;
+	double radii5 = radii4*radii1;
+	double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
+	double chargej = qm_charges[jatom-qm_start+1];
 
-      force_sum[3*iatom + 0] -= charges[iatom]*chargej*fder*dx/dr;
-      force_sum[3*iatom + 1] -= charges[iatom]*chargej*fder*dy/dr;
-      force_sum[3*iatom + 2] -= charges[iatom]*chargej*fder*dz/dr;
+	double prefactor = charges[iatom]*chargej*fder/dr;
 
-      //cout << "COMP: " << iatom << " " << jatom << " " << dr << " " << fder << " "  << chargej << endl;
+	//force_sum[3*iatom + 0] -= charges[iatom]*chargej*fder*dx/dr;
+	//force_sum[3*iatom + 1] -= charges[iatom]*chargej*fder*dy/dr;
+	//force_sum[3*iatom + 2] -= charges[iatom]*chargej*fder*dz/dr;
 
+	//cout << "COMP: " << iatom << " " << jatom << " " << dr << " " << fder << " "  << chargej << endl;
+
+	// add the forces on the MM atoms
+	force_sum[3*iatom + 0] -= prefactor*dx;
+	force_sum[3*iatom + 1] -= prefactor*dy;
+	force_sum[3*iatom + 2] -= prefactor*dz;
+
+	// add the forces on the QM atoms
+	force_sum[3*jatom + 0] += prefactor*dx;
+	force_sum[3*jatom + 1] += prefactor*dy;
+	force_sum[3*jatom + 2] += prefactor*dz;
+	//cout << "COMP: " << iatom << " " << jatom << " " << dr << " " << fder << " "  << force_sum[3*jatom+0] << endl;
+
+      }
     }
   }
 
 
 
   MPI_Reduce( force_sum, forces_mm, 3*natoms, MPI_DOUBLE, MPI_SUM, 0, world_comm);
+  if ( myrank == 0 ) {
+    cout << "QMMM Forces" << endl;
+    for (int iatom = qm_start-1; iatom <= qm_end-1; iatom++) {
+      cout << "   " << iatom << " " << forces_mm[3*iatom + 0] << " " << forces_mm[3*iatom + 1] << " " << forces_mm[3*iatom + 2] << endl;
+    }
+  }
+  /*
   for (int iatom = qm_start-1; iatom <= qm_end-1; iatom++) {
       forces_mm[3*iatom + 0] = 0.0;
       forces_mm[3*iatom + 1] = 0.0;
       forces_mm[3*iatom + 2] = 0.0;
   }
+  */
 
   delete [] radii;
   delete [] elements;
@@ -339,9 +364,9 @@ int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double*
 
   // identify the center of the box
   double box_center[3];
-  box_center[0] = 0.5*( cell[0] + cell[3] + cell[6] ) + cell[9];
-  box_center[1] = 0.5*( cell[1] + cell[4] + cell[7] ) + cell[10];
-  box_center[2] = 0.5*( cell[2] + cell[5] + cell[8] ) + cell[11];
+  box_center[0] = 0.5*( cell[0] + cell[3] + cell[6] );
+  box_center[1] = 0.5*( cell[1] + cell[4] + cell[7] );
+  box_center[2] = 0.5*( cell[2] + cell[5] + cell[8] );
 
   //cout << "Cell center: " << box_center[0] << " " << box_center[1] << " " << box_center[2] << endl;
 

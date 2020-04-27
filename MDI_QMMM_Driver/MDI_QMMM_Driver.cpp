@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
   double* forces_ec_mm = new double[3*natoms];
   double mm_force_on_qm_atoms[3*natoms_qm];
   double mm_cell[9];
-  double* qm_cell = new double[12];
+  double* qm_cell = new double[9];
   int mm_mask[natoms];
 
   // Set the MM mask
@@ -178,9 +178,9 @@ int main(int argc, char **argv) {
     // Receive the QM cell dimensions from the QM engine
     if ( myrank == 0 ) {
       MDI_Send_Command("<CELL", qm_comm);
-      MDI_Recv(qm_cell, 12, MDI_DOUBLE, qm_comm);
+      MDI_Recv(qm_cell, 9, MDI_DOUBLE, qm_comm);
     }
-    MPI_Bcast( qm_cell, 12, MPI_DOUBLE, 0, world_comm );
+    MPI_Bcast( qm_cell, 9, MPI_DOUBLE, 0, world_comm );
 
     // Receive the coordinates from the MM engine
     if ( myrank == 0 ) {
@@ -212,7 +212,19 @@ int main(int argc, char **argv) {
 
     // Recenter the coordinates
     if ( myrank == 0 ) {
+      // Print coordinates before recenter
+      cout << "Pre-recenter coordinates: " << endl;
+      for (int iatom=0; iatom < natoms_qm; iatom++) {
+	cout << "   " << iatom << " " << mm_coords[3*(qm_start-1+iatom)+0] << " " << mm_coords[3*(qm_start-1+iatom)+1] << " " << mm_coords[3*(qm_start-1+iatom)+2] << endl;
+      }
+
       recenter(natoms, world_comm, qm_start, qm_end, qm_cell, mm_coords);
+
+      // Print coordinates after recenter
+      cout << "Recentered coordinates: " << endl;
+      for (int iatom=0; iatom < natoms_qm; iatom++) {
+	cout << "   " << iatom << " " << mm_coords[3*(qm_start-1+iatom)+0] << " " << mm_coords[3*(qm_start-1+iatom)+1] << " " << mm_coords[3*(qm_start-1+iatom)+2] << endl;
+      }
     }
     MPI_Bcast( mm_coords, 3*natoms, MPI_DOUBLE, 0, world_comm );
 
@@ -226,19 +238,11 @@ int main(int argc, char **argv) {
 			       qm_start, qm_end, qm_charges, forces_ec_mm, qm_comm);
 
     // Have the QM engine perform an SCF calculation
+    /*
     if ( myrank == 0 ) {
       MDI_Send_Command("SCF", qm_comm);    
     }
-
-    // Have the QM engine send the electronic density on a grid
-    if ( myrank == 0 ) {
-      MDI_Send_Command("<DENSITY", qm_comm);
-      MDI_Recv(density, ngrid, MDI_DOUBLE, qm_comm);
-    }
-    MPI_Bcast( density, ngrid, MPI_DOUBLE, 0, world_comm );
-
-    pw_electrostatic_forces(natoms, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
-			       qm_start, qm_end, qm_charges, forces_ec_mm);
+    */
 
     // Get the QM energy
     if ( myrank == 0 ) {
@@ -250,7 +254,22 @@ int main(int argc, char **argv) {
     if ( myrank == 0 ) {
       MDI_Send_Command("<FORCES", qm_comm);
       MDI_Recv(&forces_qm, 3*natoms_qm, MDI_DOUBLE, qm_comm);
+
+      cout << "QM Forces: " << endl;
+      for (int iatom=0; iatom < natoms_qm; iatom++) {
+	cout << "   " << iatom << " " << forces_qm[3*iatom+0] << " " << forces_qm[3*iatom+1] << " " << forces_qm[3*iatom+2] << endl;
+      }
     }
+
+    // Have the QM engine send the electronic density on a grid
+    if ( myrank == 0 ) {
+      MDI_Send_Command("<DENSITY", qm_comm);
+      MDI_Recv(density, ngrid, MDI_DOUBLE, qm_comm);
+    }
+    MPI_Bcast( density, ngrid, MPI_DOUBLE, 0, world_comm );
+
+    pw_electrostatic_forces(natoms, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
+			       qm_start, qm_end, qm_charges, forces_ec_mm);
 
     // Send the coordinates to the MM subset engine
     if ( myrank == 0 ) {
@@ -277,12 +296,28 @@ int main(int argc, char **argv) {
 
     // Add the QM forces to the MM forces
     if ( myrank == 0 ) {
+
+      cout << "MM Forces: " << endl;
+      for (int iatom=0; iatom < natoms; iatom++) {
+	cout << "   " << iatom << " " << forces_mm[3*iatom+0] << " " << forces_mm[3*iatom+1] << " " << forces_mm[3*iatom+2] << endl;
+      }
+
+      cout << "Forces EC MM: " << endl;
+      for (int iatom=0; iatom < natoms; iatom++) {
+	cout << "   " << iatom << " " << forces_ec_mm[3*iatom+0] << " " << forces_ec_mm[3*iatom+1] << " " << forces_ec_mm[3*iatom+2] << endl;
+      }
+
       int i_qm = 0;
       for (int i_atom=0; i_atom < natoms; i_atom++) {
 	if ( mm_mask[i_atom] != -1 ) {
+	  /*
 	  forces_mm[3*i_atom+0] += forces_qm[3*i_qm+0] - mm_force_on_qm_atoms[3*i_qm+0];
 	  forces_mm[3*i_atom+1] += forces_qm[3*i_qm+1] - mm_force_on_qm_atoms[3*i_qm+1];
 	  forces_mm[3*i_atom+2] += forces_qm[3*i_qm+2] - mm_force_on_qm_atoms[3*i_qm+2];
+	  */
+	  forces_mm[3*i_atom+0] += forces_qm[3*i_qm+0] - mm_force_on_qm_atoms[3*i_qm+0] + forces_ec_mm[3*i_atom+0];
+	  forces_mm[3*i_atom+1] += forces_qm[3*i_qm+1] - mm_force_on_qm_atoms[3*i_qm+1] + forces_ec_mm[3*i_atom+1];
+	  forces_mm[3*i_atom+2] += forces_qm[3*i_qm+2] - mm_force_on_qm_atoms[3*i_qm+2] + forces_ec_mm[3*i_atom+2];
 	  i_qm++;
 	}
 	else {
@@ -290,6 +325,18 @@ int main(int argc, char **argv) {
 	  forces_mm[3*i_atom+1] += forces_ec_mm[3*i_atom+1];
 	  forces_mm[3*i_atom+2] += forces_ec_mm[3*i_atom+2];
 	}
+      }
+    }
+
+    if ( myrank == 0 ) {
+      cout << "MM Force on QM Atoms: " << endl;
+      for (int iatom=0; iatom < natoms_qm; iatom++) {
+	cout << "   " << iatom << " " << mm_force_on_qm_atoms[3*iatom+0] << " " << mm_force_on_qm_atoms[3*iatom+1] << " " << mm_force_on_qm_atoms[3*iatom+2] << endl;
+      }
+
+      cout << "Final Forces: " << endl;
+      for (int iatom=0; iatom < natoms; iatom++) {
+	cout << "   " << iatom << " " << forces_mm[3*iatom+0] << " " << forces_mm[3*iatom+1] << " " << forces_mm[3*iatom+2] << endl;
       }
     }
 
