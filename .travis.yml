@@ -28,10 +28,10 @@ install:
           ..
   - make
   - make install
+
+script:
   - ls
   - ls MDI_QMMM_Driver
-
-#script:
 #  - cd ../tests
 #  - pytest -vv --cov-report=xml --cov=MDI_Library -k "${TESTS}"
 
