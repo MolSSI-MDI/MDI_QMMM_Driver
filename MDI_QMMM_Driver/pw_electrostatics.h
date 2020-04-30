@@ -6,7 +6,7 @@ extern "C" {
 #include "mdi.h"
 }
 
-int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double* cell, double* coords );
+int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double* cell, double* mm_cell, double* coords );
 
 int pw_electrostatic_potential( int natoms, double* masses, int ngrid, double* grid, double* density, double* coords, double* charges, MPI_Comm world_comm, int qm_start, int qm_end, double* qm_charges, double* forces_mm, MDI_Comm comm );
 

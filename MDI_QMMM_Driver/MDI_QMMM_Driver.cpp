@@ -2,6 +2,7 @@
 #include <mpi.h>
 #include <stdexcept>
 #include <string.h>
+#include <stdlib.h>
 #include "pw_electrostatics.h"
 extern "C" {
 #include "mdi.h"
@@ -17,10 +18,10 @@ int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
 
   // VARIABLES THAT SHOULD BE READ FROM AN INPUT FILE
-  int niterations = 5;  // Number of MD iterations
   int qmmm_mode = 0;
-  int qm_start = 25;
-  int qm_end = 27;
+  int niterations = 0;
+  int qm_start = 0;
+  int qm_end = 0;
 
   // Read through all the command line options
   int iarg = 1;
@@ -44,13 +45,65 @@ int main(int argc, char **argv) {
       iarg += 2;
 
     }
+    else if ( strcmp(argv[iarg],"-qm_start") == 0 ) {
+
+      // Ensure that the argument to the -qm_start option was provided
+      if ( argc-iarg < 2 ) {
+	throw runtime_error("The -qm_start argument was not provided.");
+      }
+
+      qm_start = strtol(argv[iarg+1], nullptr, 0);
+      iarg += 2;
+    }
+    else if ( strcmp(argv[iarg],"-qm_end") == 0 ) {
+
+      // Ensure that the argument to the -qm_end option was provided
+      if ( argc-iarg < 2 ) {
+	throw runtime_error("The -qm_end argument was not provided.");
+      }
+
+      qm_end = strtol(argv[iarg+1], nullptr, 0);
+      iarg += 2;
+
+    }
+    else if ( strcmp(argv[iarg],"-iter") == 0 ) {
+
+      // Ensure that the argument to the -iter option was provided
+      if ( argc-iarg < 2 ) {
+	throw runtime_error("The -iter argument was not provided.");
+      }
+
+      niterations = strtol(argv[iarg+1], nullptr, 0);
+      iarg += 2;
+
+    }
     else {
       throw runtime_error("Unrecognized option.");
     }
 
   }
+
+  // Confirm that all required command-line arguments have been received
   if ( not initialized_mdi ) {
     throw runtime_error("The -mdi command line option was not provided.");
+  }
+  if ( niterations == 0 ) {
+    throw runtime_error("The -iter command line option was not provided.");
+  }
+  if ( qm_start == 0 ) {
+    throw runtime_error("The -qm_start command line option was not provided.");
+  }
+  if ( qm_end == 0 ) {
+    throw runtime_error("The -qm_end command line option was not provided.");
+  }
+  if ( qm_start < 0 ) {
+    throw runtime_error("Invalid value for the -qm_start option.");
+  }
+  if ( qm_end < qm_start ) {
+    throw runtime_error("Invalid value for the -qm_end option.");
+  }
+  if ( niterations < 0 ) {
+    throw runtime_error("Invalid value for the -iter option.");
   }
 
   // Get the rank of this process
@@ -132,6 +185,7 @@ int main(int argc, char **argv) {
   if ( myrank == 0 ) {
     MDI_Send_Command("<NDENSITY", qm_comm);
     MDI_Recv(&ngrid, 1, MDI_INT, qm_comm);
+    cout << "NGRID: " << ngrid << endl;
   }
   MPI_Bcast( &ngrid, 1, MPI_INT, 0, world_comm );
 
@@ -154,8 +208,8 @@ int main(int argc, char **argv) {
   double forces_ec[3*natoms_qm];
   double* forces_ec_mm = new double[3*natoms];
   double mm_force_on_qm_atoms[3*natoms_qm];
-  double mm_cell[9];
   double* qm_cell = new double[9];
+  double* mm_cell = new double[9];
   int mm_mask[natoms];
 
   // Set the MM mask
@@ -174,6 +228,13 @@ int main(int argc, char **argv) {
 
   // Perform each iteration of the simulation
   for (int iiteration = 0; iiteration < niterations; iiteration++) {
+
+    // Receive the cell dimensions from the MM engine
+    if ( myrank == 0 ) {
+      MDI_Send_Command("<CELL", mm_comm);
+      MDI_Recv(mm_cell, 9, MDI_DOUBLE, mm_comm);
+    }
+    MPI_Bcast( mm_cell, 9, MPI_DOUBLE, 0, world_comm );
 
     // Receive the QM cell dimensions from the QM engine
     if ( myrank == 0 ) {
@@ -212,19 +273,7 @@ int main(int argc, char **argv) {
 
     // Recenter the coordinates
     if ( myrank == 0 ) {
-      // Print coordinates before recenter
-      cout << "Pre-recenter coordinates: " << endl;
-      for (int iatom=0; iatom < natoms_qm; iatom++) {
-	cout << "   " << iatom << " " << mm_coords[3*(qm_start-1+iatom)+0] << " " << mm_coords[3*(qm_start-1+iatom)+1] << " " << mm_coords[3*(qm_start-1+iatom)+2] << endl;
-      }
-
-      recenter(natoms, world_comm, qm_start, qm_end, qm_cell, mm_coords);
-
-      // Print coordinates after recenter
-      cout << "Recentered coordinates: " << endl;
-      for (int iatom=0; iatom < natoms_qm; iatom++) {
-	cout << "   " << iatom << " " << mm_coords[3*(qm_start-1+iatom)+0] << " " << mm_coords[3*(qm_start-1+iatom)+1] << " " << mm_coords[3*(qm_start-1+iatom)+2] << endl;
-      }
+      recenter(natoms, world_comm, qm_start, qm_end, qm_cell, mm_cell, mm_coords);
     }
     MPI_Bcast( mm_coords, 3*natoms, MPI_DOUBLE, 0, world_comm );
 
@@ -237,13 +286,6 @@ int main(int argc, char **argv) {
     pw_electrostatic_potential(natoms, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
 			       qm_start, qm_end, qm_charges, forces_ec_mm, qm_comm);
 
-    // Have the QM engine perform an SCF calculation
-    /*
-    if ( myrank == 0 ) {
-      MDI_Send_Command("SCF", qm_comm);    
-    }
-    */
-
     // Get the QM energy
     if ( myrank == 0 ) {
       MDI_Send_Command("<ENERGY", qm_comm);
@@ -254,11 +296,6 @@ int main(int argc, char **argv) {
     if ( myrank == 0 ) {
       MDI_Send_Command("<FORCES", qm_comm);
       MDI_Recv(&forces_qm, 3*natoms_qm, MDI_DOUBLE, qm_comm);
-
-      cout << "QM Forces: " << endl;
-      for (int iatom=0; iatom < natoms_qm; iatom++) {
-	cout << "   " << iatom << " " << forces_qm[3*iatom+0] << " " << forces_qm[3*iatom+1] << " " << forces_qm[3*iatom+2] << endl;
-      }
     }
 
     // Have the QM engine send the electronic density on a grid
@@ -296,25 +333,9 @@ int main(int argc, char **argv) {
 
     // Add the QM forces to the MM forces
     if ( myrank == 0 ) {
-
-      cout << "MM Forces: " << endl;
-      for (int iatom=0; iatom < natoms; iatom++) {
-	cout << "   " << iatom << " " << forces_mm[3*iatom+0] << " " << forces_mm[3*iatom+1] << " " << forces_mm[3*iatom+2] << endl;
-      }
-
-      cout << "Forces EC MM: " << endl;
-      for (int iatom=0; iatom < natoms; iatom++) {
-	cout << "   " << iatom << " " << forces_ec_mm[3*iatom+0] << " " << forces_ec_mm[3*iatom+1] << " " << forces_ec_mm[3*iatom+2] << endl;
-      }
-
       int i_qm = 0;
       for (int i_atom=0; i_atom < natoms; i_atom++) {
 	if ( mm_mask[i_atom] != -1 ) {
-	  /*
-	  forces_mm[3*i_atom+0] += forces_qm[3*i_qm+0] - mm_force_on_qm_atoms[3*i_qm+0];
-	  forces_mm[3*i_atom+1] += forces_qm[3*i_qm+1] - mm_force_on_qm_atoms[3*i_qm+1];
-	  forces_mm[3*i_atom+2] += forces_qm[3*i_qm+2] - mm_force_on_qm_atoms[3*i_qm+2];
-	  */
 	  forces_mm[3*i_atom+0] += forces_qm[3*i_qm+0] - mm_force_on_qm_atoms[3*i_qm+0] + forces_ec_mm[3*i_atom+0];
 	  forces_mm[3*i_atom+1] += forces_qm[3*i_qm+1] - mm_force_on_qm_atoms[3*i_qm+1] + forces_ec_mm[3*i_atom+1];
 	  forces_mm[3*i_atom+2] += forces_qm[3*i_qm+2] - mm_force_on_qm_atoms[3*i_qm+2] + forces_ec_mm[3*i_atom+2];
@@ -325,18 +346,6 @@ int main(int argc, char **argv) {
 	  forces_mm[3*i_atom+1] += forces_ec_mm[3*i_atom+1];
 	  forces_mm[3*i_atom+2] += forces_ec_mm[3*i_atom+2];
 	}
-      }
-    }
-
-    if ( myrank == 0 ) {
-      cout << "MM Force on QM Atoms: " << endl;
-      for (int iatom=0; iatom < natoms_qm; iatom++) {
-	cout << "   " << iatom << " " << mm_force_on_qm_atoms[3*iatom+0] << " " << mm_force_on_qm_atoms[3*iatom+1] << " " << mm_force_on_qm_atoms[3*iatom+2] << endl;
-      }
-
-      cout << "Final Forces: " << endl;
-      for (int iatom=0; iatom < natoms; iatom++) {
-	cout << "   " << iatom << " " << forces_mm[3*iatom+0] << " " << forces_mm[3*iatom+1] << " " << forces_mm[3*iatom+2] << endl;
       }
     }
 

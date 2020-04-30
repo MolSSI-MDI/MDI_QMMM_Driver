@@ -257,9 +257,6 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
   }
   for (int iatom = myrank; iatom < natoms; iatom += nranks) {
     if ( (iatom < qm_start-1) or (iatom > qm_end-1) ) {
-      //force_sum[3*iatom + 0] = 0.0;
-      //force_sum[3*iatom + 1] = 0.0;
-      //force_sum[3*iatom + 2] = 0.0;
       for (int igrid = 0; igrid < ngrid; igrid++) {
 	// WARNING: TEMPORARY - SHOULD REPLACE WITH <VDENSITY
 	double grid_volume = side*side*side;
@@ -307,12 +304,6 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
 
 	double prefactor = charges[iatom]*chargej*fder/dr;
 
-	//force_sum[3*iatom + 0] -= charges[iatom]*chargej*fder*dx/dr;
-	//force_sum[3*iatom + 1] -= charges[iatom]*chargej*fder*dy/dr;
-	//force_sum[3*iatom + 2] -= charges[iatom]*chargej*fder*dz/dr;
-
-	//cout << "COMP: " << iatom << " " << jatom << " " << dr << " " << fder << " "  << chargej << endl;
-
 	// add the forces on the MM atoms
 	force_sum[3*iatom + 0] -= prefactor*dx;
 	force_sum[3*iatom + 1] -= prefactor*dy;
@@ -322,40 +313,22 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
 	force_sum[3*jatom + 0] += prefactor*dx;
 	force_sum[3*jatom + 1] += prefactor*dy;
 	force_sum[3*jatom + 2] += prefactor*dz;
-	//cout << "COMP: " << iatom << " " << jatom << " " << dr << " " << fder << " "  << force_sum[3*jatom+0] << endl;
-
       }
     }
   }
 
-
-
   MPI_Reduce( force_sum, forces_mm, 3*natoms, MPI_DOUBLE, MPI_SUM, 0, world_comm);
-  if ( myrank == 0 ) {
-    cout << "QMMM Forces" << endl;
-    for (int iatom = qm_start-1; iatom <= qm_end-1; iatom++) {
-      cout << "   " << iatom << " " << forces_mm[3*iatom + 0] << " " << forces_mm[3*iatom + 1] << " " << forces_mm[3*iatom + 2] << endl;
-    }
-  }
-  /*
-  for (int iatom = qm_start-1; iatom <= qm_end-1; iatom++) {
-      forces_mm[3*iatom + 0] = 0.0;
-      forces_mm[3*iatom + 1] = 0.0;
-      forces_mm[3*iatom + 2] = 0.0;
-  }
-  */
 
   delete [] radii;
   delete [] elements;
   delete [] force_sum;
-
 
   return 0;
 }
 
 
 
-int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double* cell, double* coords ) {
+int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double* cell, double* mm_cell, double* coords ) {
 
   int myrank;
   MPI_Comm_rank(world_comm, &myrank);
@@ -368,8 +341,6 @@ int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double*
   box_center[1] = 0.5*( cell[1] + cell[4] + cell[7] );
   box_center[2] = 0.5*( cell[2] + cell[5] + cell[8] );
 
-  //cout << "Cell center: " << box_center[0] << " " << box_center[1] << " " << box_center[2] << endl;
-
   // identify the average location of the nuclei
   double nuclei_center[3];
   for (int ix = 0; ix < 3; ix++) {
@@ -379,11 +350,6 @@ int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double*
     }
     nuclei_center[ix] /= double( qm_end - qm_start + 1 );
   }
-  /*
-  if ( myrank == 0 ) {
-    cout << "Nuclei center: " << nuclei_center[0]/(2.0*box_center[0]) << " " << nuclei_center[1]/(2.0*box_center[1]) << " " << nuclei_center[2]/(2.0*box_center[2]) << endl;
-  }
-  */
 
   // shift all of the coordinates
   for (int iatom = 0; iatom < natoms; iatom++) {
@@ -392,28 +358,21 @@ int recenter( int natoms, MPI_Comm world_comm, int qm_start, int qm_end, double*
     }
   }
 
-
-
-  //
-  // WARNING: ASSUMES AN ORTHOGONAL BOX
+  // move the MM coordinates into the nearest image, relative to the center of the QM box
+  double mm_size[3];
+  mm_size[0] = mm_cell[0] + mm_cell[3] + mm_cell[6];
+  mm_size[1] = mm_cell[1] + mm_cell[4] + mm_cell[7];
+  mm_size[2] = mm_cell[2] + mm_cell[5] + mm_cell[8];
   for (int iatom = 0; iatom < natoms; iatom++) {
     for (int ix = 0; ix < 3; ix++) {
       double fx;
       fx = coords[ 3*iatom + ix ] - box_center[ix];
-      fx /= 2.0*box_center[ix];
-      double tempf = fx;
+      fx /= mm_size[ix];
       fx -= round( fx );
-      /*
-      if (myrank == 0) {
-	cout << "@@@: " << iatom << " " << ix << " " << tempf << " " << fx << endl;
-      }
-      */
-      fx *= 2.0*box_center[ix];
+      fx *= mm_size[ix];
       coords[ 3*iatom + ix ] = fx + box_center[ix];
     }
   }
-
-
 
   return 0;
 }

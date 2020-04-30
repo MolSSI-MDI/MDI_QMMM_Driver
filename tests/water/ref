@@ -1,0 +1,11 @@
+Engine name: MM_SUB
+Engine name: MM
+Engine name: QM
+MM atoms: 96
+QM atoms: 3
+NGRID: 884736
+timestep: 0 -0.598762 -17.3939
+timestep: 1 -0.522518 -17.4022
+timestep: 2 -0.524038 -17.4023
+timestep: 3 -0.526463 -17.4016
+timestep: 4 -0.529671 -17.3998
