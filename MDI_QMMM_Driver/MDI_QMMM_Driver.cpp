@@ -220,15 +220,13 @@ int main(int argc, char **argv) {
   double* mm_charges = new double[natoms];
   double* masses = new double[natoms];
   double* forces_mm = new double[3*natoms];
-  double* qm_coords = new double[3*natoms_qm];
   double* qm_charges = new double[natoms];
-  double forces_qm[3*natoms_qm];
-  double forces_ec[3*natoms_qm];
+  double* forces_qm = new double[3*natoms_qm];
   double* forces_ec_mm = new double[3*natoms];
-  double mm_force_on_qm_atoms[3*natoms_qm];
+  double* mm_force_on_qm_atoms = new double[3*natoms_qm];
   double* qm_cell = new double[9];
   double* mm_cell = new double[9];
-  int mm_mask[natoms];
+  int* mm_mask = new int[natoms];
 
   // Set the MM mask
   // this is -1 for non-QM atoms, and 1 for QM atoms
@@ -349,7 +347,7 @@ int main(int argc, char **argv) {
     }
     if ( myrank == 0 ) {
       MDI_Send_Command("<FORCES", qm_comm);
-      MDI_Recv(&forces_qm, 3*natoms_qm, MDI_DOUBLE, qm_comm);
+      MDI_Recv(forces_qm, 3*natoms_qm, MDI_DOUBLE, qm_comm);
     }
     if ( myrank == 0 ) {
       time_end_section = std::chrono::high_resolution_clock::now();
@@ -458,13 +456,17 @@ int main(int argc, char **argv) {
   // Free memory
   delete [] grid;
   delete [] density;
+  delete [] mm_coords;
   delete [] mm_charges;
-  delete [] qm_coords;
-  delete [] qm_charges;
-  delete [] qm_cell;
   delete [] masses;
   delete [] forces_mm;
+  delete [] qm_charges;
+  delete [] forces_qm;
+  delete [] qm_cell;
+  delete [] mm_cell;
   delete [] forces_ec_mm;
+  delete [] mm_force_on_qm_atoms;
+  delete [] mm_mask;
 
   // Send the "EXIT" command to each of the engines
   if ( myrank == 0 ) {
