@@ -3,12 +3,14 @@
 #include <stdexcept>
 #include <string.h>
 #include <stdlib.h>
+#include <chrono>
 #include "pw_electrostatics.h"
 extern "C" {
 #include "mdi.h"
 }
 
-using namespace std;
+//using namespace std;
+typedef std::chrono::time_point<std::chrono::high_resolution_clock> chrono_time;
 
 int main(int argc, char **argv) {
   int ret;
@@ -32,14 +34,14 @@ int main(int argc, char **argv) {
 
       // Ensure that the argument to the -mdi option was provided
       if ( argc-iarg < 2 ) {
-	throw runtime_error("The -mdi argument was not provided.");
+	throw std::runtime_error("The -mdi argument was not provided.");
       }
 
       // Initialize the MDI Library
       world_comm = MPI_COMM_WORLD;
       int ret = MDI_Init(argv[iarg+1], &world_comm);
       if ( ret != 0 ) {
-	throw runtime_error("The MDI library was not initialized correctly.");
+	throw std::runtime_error("The MDI library was not initialized correctly.");
       }
       initialized_mdi = true;
       iarg += 2;
@@ -49,7 +51,7 @@ int main(int argc, char **argv) {
 
       // Ensure that the argument to the -qm_start option was provided
       if ( argc-iarg < 2 ) {
-	throw runtime_error("The -qm_start argument was not provided.");
+	throw std::runtime_error("The -qm_start argument was not provided.");
       }
 
       qm_start = strtol(argv[iarg+1], nullptr, 0);
@@ -59,7 +61,7 @@ int main(int argc, char **argv) {
 
       // Ensure that the argument to the -qm_end option was provided
       if ( argc-iarg < 2 ) {
-	throw runtime_error("The -qm_end argument was not provided.");
+	throw std::runtime_error("The -qm_end argument was not provided.");
       }
 
       qm_end = strtol(argv[iarg+1], nullptr, 0);
@@ -70,7 +72,7 @@ int main(int argc, char **argv) {
 
       // Ensure that the argument to the -iter option was provided
       if ( argc-iarg < 2 ) {
-	throw runtime_error("The -iter argument was not provided.");
+	throw std::runtime_error("The -iter argument was not provided.");
       }
 
       niterations = strtol(argv[iarg+1], nullptr, 0);
@@ -78,37 +80,53 @@ int main(int argc, char **argv) {
 
     }
     else {
-      throw runtime_error("Unrecognized option.");
+      throw std::runtime_error("Unrecognized option.");
     }
 
   }
 
   // Confirm that all required command-line arguments have been received
   if ( not initialized_mdi ) {
-    throw runtime_error("The -mdi command line option was not provided.");
+    throw std::runtime_error("The -mdi command line option was not provided.");
   }
   if ( niterations == 0 ) {
-    throw runtime_error("The -iter command line option was not provided.");
+    throw std::runtime_error("The -iter command line option was not provided.");
   }
   if ( qm_start == 0 ) {
-    throw runtime_error("The -qm_start command line option was not provided.");
+    throw std::runtime_error("The -qm_start command line option was not provided.");
   }
   if ( qm_end == 0 ) {
-    throw runtime_error("The -qm_end command line option was not provided.");
+    throw std::runtime_error("The -qm_end command line option was not provided.");
   }
   if ( qm_start < 0 ) {
-    throw runtime_error("Invalid value for the -qm_start option.");
+    throw std::runtime_error("Invalid value for the -qm_start option.");
   }
   if ( qm_end < qm_start ) {
-    throw runtime_error("Invalid value for the -qm_end option.");
+    throw std::runtime_error("Invalid value for the -qm_end option.");
   }
   if ( niterations < 0 ) {
-    throw runtime_error("Invalid value for the -iter option.");
+    throw std::runtime_error("Invalid value for the -iter option.");
   }
 
   // Get the rank of this process
   int myrank;
   MPI_Comm_rank(world_comm, &myrank);
+
+  // Get the current time
+  double time_query = 0.0;
+  double time_recenter = 0.0;
+  double time_scf = 0.0;
+  double time_qm_forces = 0.0;
+  double time_qm_density = 0.0;
+  double time_pot = 0.0;
+  double time_forces = 0.0;
+  double time_coords = 0.0;
+  chrono_time time_start_section;
+  chrono_time time_end_section;
+  chrono_time time_start;
+  if (myrank == 0 ) {
+    time_start = std::chrono::high_resolution_clock::now();
+  }
 
   // Connect to the engines
   MDI_Comm mm_comm = MDI_COMM_NULL;
@@ -128,29 +146,29 @@ int main(int argc, char **argv) {
     MPI_Bcast( engine_name, MDI_NAME_LENGTH, MPI_CHAR, 0, world_comm );
 
     if ( myrank == 0 ) {
-      cout << "Engine name: " << engine_name << endl;
+      std::cout << "Engine name: " << engine_name << std::endl;
     }
  
     if ( strcmp(engine_name, "MM") == 0 ) {
       if ( mm_comm != MDI_COMM_NULL ) {
-	throw runtime_error("Accepted a communicator from a second main MM engine.");
+	throw std::runtime_error("Accepted a communicator from a second main MM engine.");
       }
       mm_comm = comm;
     }
     else if ( strcmp(engine_name, "QM") == 0 ) {
       if ( qm_comm != MDI_COMM_NULL ) {
-	throw runtime_error("Accepted a communicator from a second QM engine.");
+	throw std::runtime_error("Accepted a communicator from a second QM engine.");
       }
       qm_comm = comm;
     }
     else if ( strcmp(engine_name, "MM_SUB") == 0 ) {
       if ( mm_sub_comm != MDI_COMM_NULL ) {
-	throw runtime_error("Accepted a communicator from a second subset MM engine.");
+	throw std::runtime_error("Accepted a communicator from a second subset MM engine.");
       }
       mm_sub_comm = comm;
     }
     else {
-      throw runtime_error("Unrecognized engine name.");
+      throw std::runtime_error("Unrecognized engine name.");
     }
  
     delete[] engine_name;
@@ -176,8 +194,8 @@ int main(int argc, char **argv) {
   MPI_Bcast( &natoms_qm, 1, MPI_INT, 0, world_comm );
 
   if ( myrank == 0 ) {
-    cout << "MM atoms: " << natoms << endl;
-    cout << "QM atoms: " << natoms_qm << endl;
+    std::cout << "MM atoms: " << natoms << std::endl;
+    std::cout << "QM atoms: " << natoms_qm << std::endl;
   }
 
   // Receive the number of grid points used to represent the density from the QM engine
@@ -185,7 +203,7 @@ int main(int argc, char **argv) {
   if ( myrank == 0 ) {
     MDI_Send_Command("<NDENSITY", qm_comm);
     MDI_Recv(&ngrid, 1, MDI_INT, qm_comm);
-    cout << "NGRID: " << ngrid << endl;
+    std::cout << "NGRID: " << ngrid << std::endl;
   }
   MPI_Bcast( &ngrid, 1, MPI_INT, 0, world_comm );
 
@@ -231,6 +249,9 @@ int main(int argc, char **argv) {
 
     // Receive the cell dimensions from the MM engine
     if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
+    if ( myrank == 0 ) {
       MDI_Send_Command("<CELL", mm_comm);
       MDI_Recv(mm_cell, 9, MDI_DOUBLE, mm_comm);
     }
@@ -270,8 +291,16 @@ int main(int argc, char **argv) {
       MDI_Recv(masses, natoms, MDI_DOUBLE, mm_comm);
     }
     MPI_Bcast( masses, natoms, MPI_DOUBLE, 0, world_comm );
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_query += time_sec;
+    }
 
     // Recenter the coordinates
+    if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
     if ( myrank == 0 ) {
       recenter(natoms, world_comm, qm_start, qm_end, qm_cell, mm_cell, mm_coords);
     }
@@ -282,33 +311,83 @@ int main(int argc, char **argv) {
       MDI_Send_Command(">COORDS", qm_comm);
       MDI_Send(&mm_coords[3*(qm_start-1)], 3*natoms_qm, MDI_DOUBLE, qm_comm);
     }
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_recenter += time_sec;
+    }
 
+    // Calculate the electrostatic potential from the MM atoms on a grid
+    if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
     pw_electrostatic_potential(natoms, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
 			       qm_start, qm_end, qm_charges, forces_ec_mm, qm_comm);
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_pot += time_sec;
+    }
 
     // Get the QM energy
+    if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
     if ( myrank == 0 ) {
       MDI_Send_Command("<ENERGY", qm_comm);
       MDI_Recv(&qm_energy, 1, MDI_DOUBLE, qm_comm);
     }
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_scf += time_sec;
+    }
 
     // Get the QM forces
+    if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
     if ( myrank == 0 ) {
       MDI_Send_Command("<FORCES", qm_comm);
       MDI_Recv(&forces_qm, 3*natoms_qm, MDI_DOUBLE, qm_comm);
     }
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_qm_forces += time_sec;
+    }
 
     // Have the QM engine send the electronic density on a grid
+    if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
     if ( myrank == 0 ) {
       MDI_Send_Command("<DENSITY", qm_comm);
       MDI_Recv(density, ngrid, MDI_DOUBLE, qm_comm);
     }
     MPI_Bcast( density, ngrid, MPI_DOUBLE, 0, world_comm );
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_qm_density += time_sec;
+    }
 
+    // Calculate the forces on the MM atoms from the QM electric field
+    if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
     pw_electrostatic_forces(natoms, masses, ngrid, grid, density, mm_coords, mm_charges, world_comm, 
 			       qm_start, qm_end, qm_charges, forces_ec_mm);
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_forces += time_sec;
+    }
 
     // Send the coordinates to the MM subset engine
+    if ( myrank == 0 ) {
+      time_start_section = std::chrono::high_resolution_clock::now();
+    }
     if ( myrank == 0 ) {
       MDI_Send_Command(">COORDS", mm_sub_comm);
       MDI_Send(&mm_coords[3*(qm_start-1)], 3*natoms_qm, MDI_DOUBLE, mm_sub_comm);
@@ -365,9 +444,14 @@ int main(int argc, char **argv) {
     if ( myrank == 0 ) {
       MDI_Send_Command("@COORDS", mm_comm);
     }
+    if ( myrank == 0 ) {
+      time_end_section = std::chrono::high_resolution_clock::now();
+      double time_sec =std::chrono::duration_cast<std::chrono::milliseconds>(time_end_section-time_start_section).count() / 1000.0;
+      time_coords += time_sec;
+    }
 
     if ( myrank == 0 ) {
-      cout << "timestep: " << iiteration << " " << mm_energy << " " << qm_energy << endl;
+      std::cout << "timestep: " << iiteration << " " << mm_energy << " " << qm_energy << std::endl;
     }
   }
 
@@ -391,6 +475,22 @@ int main(int argc, char **argv) {
 
   // Synchronize all MPI ranks
   MPI_Barrier(world_comm);
+
+  // Get the current time
+  chrono_time time_end;
+  if (myrank == 0 ) {
+    time_end = std::chrono::high_resolution_clock::now();
+    double total_time = std::chrono::duration_cast<std::chrono::milliseconds>(time_end-time_start).count() / 1000.0;
+    std::cout << "Query time:         " << time_query << std::endl;
+    std::cout << "Recenter time:      " << time_recenter << std::endl;
+    std::cout << "QM SCF time:        " << time_scf << std::endl;
+    std::cout << "QM forces time:     " << time_qm_forces << std::endl;
+    std::cout << "QM density time:    " << time_qm_density << std::endl;
+    std::cout << "Driver pot time:    " << time_pot << std::endl;
+    std::cout << "Driver forces time: " << time_forces << std::endl;
+    std::cout << "MM coords time:     " << time_coords << std::endl;
+    std::cout << "Total time:         " << total_time << std::endl;
+  }
 
   return 0;
 }
