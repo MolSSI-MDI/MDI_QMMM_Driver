@@ -256,6 +256,9 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
     force_sum[icoord] = 0.0;
   }
   for (int iatom = myrank; iatom < natoms; iatom += nranks) {
+    double radii1 = radii[ iatom ];
+    double radii4 = radii1*radii1*radii1*radii1;
+    double radii5 = radii4*radii1;
     if ( (iatom < qm_start-1) or (iatom > qm_end-1) ) {
       for (int igrid = 0; igrid < ngrid; igrid++) {
 	// WARNING: TEMPORARY - SHOULD REPLACE WITH <VDENSITY
@@ -268,14 +271,12 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
 	double dr3 = dr*dr*dr;
 	double dr4 = dr3*dr;
 	double dr5 = dr4*dr;
-	double radii1 = radii[ iatom ];
-	double radii4 = radii1*radii1*radii1*radii1;
-	double radii5 = radii4*radii1;
 	double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
+	double prefactor = grid_volume*density[igrid]*fder/dr;
 
-	force_sum[3*iatom + 0] += grid_volume*density[igrid]*fder*dx/dr;
-	force_sum[3*iatom + 1] += grid_volume*density[igrid]*fder*dy/dr;
-	force_sum[3*iatom + 2] += grid_volume*density[igrid]*fder*dz/dr;
+	force_sum[3*iatom + 0] += prefactor*dx;
+	force_sum[3*iatom + 1] += prefactor*dy;
+	force_sum[3*iatom + 2] += prefactor*dz;
       }
 
       force_sum[3*iatom + 0] *= charges[iatom];
@@ -287,6 +288,9 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
 
 
   for (int iatom = myrank; iatom < natoms; iatom += nranks) {
+    double radii1 = radii[ iatom ];
+    double radii4 = radii1*radii1*radii1*radii1;
+    double radii5 = radii4*radii1;
     if ( (iatom < qm_start-1) or (iatom > qm_end-1) ) {
       for (int jatom = qm_start-1; jatom <= qm_end-1; jatom++) {
 	double dx = coords[3*iatom + 0] - coords[3*jatom + 0];
@@ -296,9 +300,6 @@ int pw_electrostatic_forces( int natoms, double* masses, int ngrid, double* grid
 	double dr3 = dr*dr*dr;
 	double dr4 = dr3*dr;
 	double dr5 = dr4*dr;
-	double radii1 = radii[ iatom ];
-	double radii4 = radii1*radii1*radii1*radii1;
-	double radii5 = radii4*radii1;
 	double fder = ( 5.0*dr4*( radii4 - dr4 ) - 4.0*dr3*( radii5 - dr5 ) ) / ( (radii5 - dr5)*(radii5 - dr5) );
 	double chargej = qm_charges[jatom-qm_start+1];
 
