@@ -96,8 +96,10 @@ install:
   - sed -i '/CCFLAGS = /c\CCFLAGS = -g -O3 -std=c++11' MAKE/Makefile.mpi
   - |
     if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+      echo "Linux"
       sed -i '/CCFLAGS = /c\CCFLAGS = -g -O3 -std=c++11' MAKE/Makefile.mpi
     elif [ "$TRAVIS_OS_NAME" == "osx" ]; then
+      echo "OS X"
       sed -i '' '/CCFLAGS = /c\CCFLAGS = -g -O3 -std=c++11' MAKE/Makefile.mpi
     fi
   - cat MAKE/Makefile.mpi
