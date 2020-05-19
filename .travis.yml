@@ -65,11 +65,12 @@ install:
 
   # Install lammps
   - cd ../../
-  - git clone https://github.com/MolSSI-MDI/lammps.git
-  - cd lammps
-  - git checkout mdi
-  - cd dev
-  - cd ../src
+  - git clone https://github.com/lammps/lammps.git
+  - cd lammps/lib/message
+  - make lib_parallel zmq=no
+  - cp cslib/src/libcsmpi.a cslib/src/libmessage.a
+  - cp Makefile.lammps.nozmq Makefile.lammps
+  - cd ../../src
   - make yes-standard
   - make no-gpu
   - make no-kim
@@ -84,12 +85,11 @@ install:
   - make no-reax
   - make no-voronoi
   - make no-user-qmmm
-  - make yes-user-mdi
-  - cd ../lib/mdi
-  - python Install.py -m gcc
-  #- cd ../reax
-  #- python Install.py -m gfortran
-  - cd ../../src
+  #- make yes-user-mdi
+  - make yes-message
+  #- cd ../lib/mdi
+  #- python Install.py -m gcc
+  #- cd ../../src
   
   # Build LAMMPS
   - if test "${LAMMPS_INSTALL}" = 'serial'; then make mpi-stubs; fi
