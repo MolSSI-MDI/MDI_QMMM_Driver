@@ -33,6 +33,23 @@ matrix:
         - which gfortran
         - export FC=gfortran
         - sudo pip install -U pytest pytest-cov
+    - os: osx
+      addons:
+        apt_packages:
+          - gfortran
+      env: 
+        - LAMMPS_INSTALL="serial"
+        - TESTS="not mpi"
+        #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
+        #- CMAKE_COVERAGE_FLAGS=""
+      before_install:
+        - brew update > /dev/null
+        #- brew uninstall --ignore-dependencies gcc
+        #- brew install gcc > /dev/null
+        - which g++
+        - which gfortran
+        - export FC=gfortran
+        - sudo pip install -U pytest pytest-cov
 
 install:
   # Make local install build
@@ -48,7 +65,7 @@ install:
 
   # Install lammps
   - cd ../../
-  - git clone https://github.com/MolSSI/lammps.git
+  - git clone https://github.com/MolSSI-MDI/lammps.git
   - cd lammps
   - git checkout mdi
   - cd dev
