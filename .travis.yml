@@ -45,8 +45,7 @@ matrix:
         #- CMAKE_COVERAGE_FLAGS=""
       before_install:
         - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update > /dev/null; fi
-        #- brew uninstall --ignore-dependencies gcc
-        #- brew install gcc > /dev/null
+        - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install $MPI; fi
         - which g++
         - which gfortran
         - export FC=gfortran
