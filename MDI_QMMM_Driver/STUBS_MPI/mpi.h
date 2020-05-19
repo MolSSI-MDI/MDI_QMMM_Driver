@@ -1,9 +1,10 @@
-#ifndef MPI_STUB
-#define MPI_STUB
+#ifndef DRIVER_MPI_STUBS
+#define DRIVER_MPI_STUBS
 
 typedef int MPI_Comm;
 typedef int MPI_Datatype;
 typedef int MPI_Status;
+typedef int MPI_Op;
 
 #define MPI_MAX_PROCESSOR_NAME 0
 #define MPI_STATUS_IGNORE 0
@@ -11,23 +12,26 @@ typedef int MPI_Status;
 #define MPI_INT 1
 #define MPI_DOUBLE 4
 #define MPI_CHAR 5
+#define MPI_SUM 1
 
-int MPI_Init( int *argc, char ***argv) { return 0;};
-int MPI_Finalize(void) { return 0; };
+static int MPI_Init( int *argc, char ***argv) { return 0;};
+static int MPI_Finalize(void) { return 0; };
 
-int MPI_Comm_rank( MPI_Comm comm, int *rank ) { return 0; };
-int MPI_Comm_size( MPI_Comm comm, int *size ) { return 0; };
-int MPI_Get_processor_name( char *name, int *resultlen ) {return 0;};
+static int MPI_Comm_rank( MPI_Comm comm, int *rank ) { return 0; };
+static int MPI_Comm_size( MPI_Comm comm, int *size ) { return 0; };
+static int MPI_Get_processor_name( char *name, int *resultlen ) {return 0;};
 
-int MPI_Barrier(MPI_Comm comm) { return 0; };
-int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+static int MPI_Barrier(MPI_Comm comm) { return 0; };
+static int MPI_Gather(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                void *recvbuf, int recvcount, MPI_Datatype recvtype,
                int root, MPI_Comm comm) { return 0; };
-int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
+static int MPI_Send(const void *buf, int count, MPI_Datatype datatype, int dest, int tag,
              MPI_Comm comm) { return 0; };
-int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
+static int MPI_Recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
              MPI_Comm comm, MPI_Status *status) { return 0; };
-int MPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm) { return 0; };
-int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm) { return 0 };
+static int MPI_Comm_split(MPI_Comm comm, int color, int key, MPI_Comm *newcomm) { return 0; };
+static int MPI_Bcast(void *buffer, int count, MPI_Datatype datatype, int root, MPI_Comm comm) { return 0; };
+static int MPI_Reduce(const void *sendbuf, void *recvbuf, int count, MPI_Datatype datatype,
+               MPI_Op op, int root, MPI_Comm comm) { return 0; };
 
 #endif

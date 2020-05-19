@@ -6,6 +6,7 @@ matrix:
     - os: linux
       compiler: gcc
       env: 
+        - LAMMPS_INSTALL="mpi"
         - TESTS=""
         #- CMAKE_COVERAGE_FLAGS="-O0 -coverage"
         #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
@@ -15,19 +16,71 @@ matrix:
         - sudo pip install mpi4py
         - sudo pip install numpy
         - sudo pip install -U pytest pytest-cov
+    - os: osx
+      addons:
+        apt_packages:
+          - gfortran
+      env: 
+        - LAMMPS_INSTALL="serial"
+        - TESTS="not mpi"
+        #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
+        #- CMAKE_COVERAGE_FLAGS=""
+      before_install:
+        - brew update > /dev/null
+        #- brew uninstall --ignore-dependencies gcc
+        #- brew install gcc > /dev/null
+        - which g++
+        - which gfortran
+        - export FC=gfortran
+        - sudo pip install -U pytest pytest-cov
 
 install:
   # Make local install build
   - mkdir build
   - cd build
-  - cmake -Dtest_codes=ON 
-          -DCMAKE_INSTALL_PREFIX=./install 
+  - cmake -DCMAKE_INSTALL_PREFIX=./install 
           -DCMAKE_C_FLAGS="$CMAKE_COVERAGE_FLAGS" 
           -DCMAKE_CXX_FLAGS="$CMAKE_COVERAGE_FLAGS" 
           -DCMAKE_Fortran_FLAGS="$CMAKE_COVERAGE_FLAGS" 
           ..
   - make
   - make install
+
+  # Install lammps
+  - cd ../../
+  - git clone https://github.com/MolSSI/lammps.git
+  - cd lammps
+  - git checkout mdi
+  - cd dev
+  - cd ../src
+  - make yes-standard
+  - make no-gpu
+  - make no-kim
+  - make no-kokkos
+  - make no-kspace
+  - make no-latte
+  - make no-meam
+  - make no-mpiio
+  - make no-mscg
+  - make no-poems
+  - make no-python
+  - make no-reax
+  - make no-voronoi
+  - make no-user-qmmm
+  - make yes-user-mdi
+  - cd ../lib/mdi
+  - python Install.py -m gcc
+  #- cd ../reax
+  #- python Install.py -m gfortran
+  - cd ../../src
+  
+  # Build LAMMPS
+  - if test "${LAMMPS_INSTALL}" = 'serial'; then make mpi-stubs; fi
+  - make -j 4 "${LAMMPS_INSTALL}"
+  
+  # Return to the driver
+  - cd ../../MDI_QMMM_Driver
+  
 
 script:
   - ls
