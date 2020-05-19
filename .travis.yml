@@ -67,7 +67,8 @@ install:
   - cd ../../
   - git clone https://github.com/lammps/lammps.git
   - cd lammps/lib/message
-  - make lib_parallel zmq=no
+  #- make lib_parallel zmq=no
+  - python Install.py -s
   - cp cslib/src/libcsmpi.a cslib/src/libmessage.a
   - cp Makefile.lammps.nozmq Makefile.lammps
   - cd ../../src
