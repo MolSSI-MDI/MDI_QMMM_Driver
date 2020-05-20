@@ -47,6 +47,9 @@ before_install:
   - sudo pip install -U pytest pytest-cov
 
 install:
+  - BASE_PATH=$(pwd)
+  - echo ${BASE_PATH}
+
   # Make local install build
   - mkdir build
   - cd build
@@ -60,33 +63,35 @@ install:
 
   # Install lammps
   - cd ../../
-  - git clone https://github.com/MolSSI-MDI/lammps.git
-  - cd lammps
-  - git checkout mdi
-  - cd dev
-  - cd ../src
-  - make yes-standard
-  - make no-gpu
-  - make no-kim
-  - make no-kokkos
-  - make no-kspace
-  - make no-latte
-  - make no-meam
-  - make no-mpiio
-  - make no-mscg
-  - make no-poems
-  - make no-python
-  - make no-reax
-  - make no-voronoi
-  - make no-user-qmmm
-  - make yes-user-mdi
-  - cd ../lib/mdi
-  - python Install.py -m gcc
-  - cd ../../src
+  - cp ${BASE_PATH}/tools/lammps_build.sh .
+  - ./lammps_build.sh
+  #- git clone https://github.com/MolSSI-MDI/lammps.git
+  #- cd lammps
+  #- git checkout mdi
+  #- cd dev
+  #- cd ../src
+  #- make yes-standard
+  #- make no-gpu
+  #- make no-kim
+  #- make no-kokkos
+  #- make no-kspace
+  #- make no-latte
+  #- make no-meam
+  #- make no-mpiio
+  #- make no-mscg
+  #- make no-poems
+  #- make no-python
+  #- make no-reax
+  #- make no-voronoi
+  #- make no-user-qmmm
+  #- make yes-user-mdi
+  #- cd ../lib/mdi
+  #- python Install.py -m gcc
+  #- cd ../../src
   
   # Build LAMMPS
-  - if test "${LAMMPS_INSTALL}" = 'serial'; then make mpi-stubs; fi
-  - make -j 4 "${LAMMPS_INSTALL}"
+  #- if test "${LAMMPS_INSTALL}" = 'serial'; then make mpi-stubs; fi
+  #- make -j 4 "${LAMMPS_INSTALL}"
   
   # Return to the driver
   - cd ../../MDI_QMMM_Driver
