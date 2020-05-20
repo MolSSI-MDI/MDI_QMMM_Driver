@@ -67,7 +67,8 @@ install:
   - cd ../../
   - git clone https://github.com/lammps/lammps.git
   - cd lammps/lib/message
-  - python Install.py -m
+  - if test "${LAMMPS_INSTALL}" = 'mpi'; then python Install.py -m; fi
+  - if test "${LAMMPS_INSTALL}" = 'serial'; then python Install.py -s; fi
   - cp cslib/src/libcsmpi.a cslib/src/libmessage.a
   - cp Makefile.lammps.nozmq Makefile.lammps
   - cd ../../src
