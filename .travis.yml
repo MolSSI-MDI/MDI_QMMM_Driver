@@ -25,14 +25,6 @@ matrix:
         - TESTS="not mpi"
         #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
         #- CMAKE_COVERAGE_FLAGS=""
-      before_install:
-        - brew update > /dev/null
-        #- brew uninstall --ignore-dependencies gcc
-        #- brew install gcc > /dev/null
-        - which g++
-        - which gfortran
-        - export FC=gfortran
-        - sudo pip install -U pytest pytest-cov
     - os: osx
       addons:
         apt_packages:
@@ -43,18 +35,17 @@ matrix:
         - MPI=openmpi
         #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
         #- CMAKE_COVERAGE_FLAGS=""
-      before_install:
-        #- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update > /dev/null; fi
-        #- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install $MPI; fi
-        - |
-          if [ "$TRAVIS_OS_NAME" == "osx" ]; then
-            brew update > /dev/null
-            brew install $MPI
-          fi
-        - which g++
-        - which gfortran
-        - export FC=gfortran
-        - sudo pip install -U pytest pytest-cov
+
+before_install:
+  - |
+    if [ "$TRAVIS_OS_NAME" == "osx" ]; then
+      brew update > /dev/null
+      brew install $MPI
+    fi
+  - which g++
+  - which gfortran
+  - export FC=gfortran
+  - sudo pip install -U pytest pytest-cov
 
 install:
   # Make local install build
@@ -92,8 +83,6 @@ install:
   - make yes-user-mdi
   - cd ../lib/mdi
   - python Install.py -m gcc
-  #- cd ../reax
-  #- python Install.py -m gfortran
   - cd ../../src
   
   # Build LAMMPS
