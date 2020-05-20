@@ -100,10 +100,10 @@ install:
       sed -i '/CCFLAGS =	-g -O3/c\CCFLAGS = -g -O3 -std=c++11' MAKE/Makefile.serial
     elif [ "$TRAVIS_OS_NAME" == "osx" ]; then
       echo "OS X"
-      sed -i '' '/CCFLAGS/c\
+      sed -i '' '/CCFLAGS =	-g -O3/c\
                  CCFLAGS = -g -O3 -std=c++11\
                  ' MAKE/Makefile.mpi
-      sed -i '' '/CCFLAGS/c\
+      sed -i '' '/CCFLAGS =	-g -O3/c\
                  CCFLAGS = -g -O3 -std=c++11\
                  ' MAKE/Makefile.serial
     fi
