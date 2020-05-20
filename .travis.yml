@@ -94,7 +94,7 @@ install:
   #- make -j 4 "${LAMMPS_INSTALL}"
   
   # Return to the driver
-  - cd ../../MDI_QMMM_Driver
+  - cd ${BASE_PATH}
   
 
 script:
