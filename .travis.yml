@@ -93,7 +93,6 @@ install:
   
   # Build LAMMPS
   - if test "${LAMMPS_INSTALL}" = 'serial'; then make mpi-stubs; fi
-  - sed -i '/CCFLAGS = /c\CCFLAGS = -g -O3 -std=c++11' MAKE/Makefile.mpi
   - |
     if [ "$TRAVIS_OS_NAME" == "linux" ]; then
       echo "Linux"
