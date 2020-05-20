@@ -67,7 +67,7 @@ install:
   - cd ../../
   - git clone https://github.com/MolSSI-MDI/lammps.git
   - cd lammps
-  - git checkout mdi
+  - git checkout mdi_private
   - cd dev
   - cd ../src
   - make yes-standard
