@@ -10,12 +10,6 @@ matrix:
         - TESTS=""
         #- CMAKE_COVERAGE_FLAGS="-O0 -coverage"
         #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
-      before_install:
-        - sudo apt-get install gfortran
-        - sudo apt-get install mpich libmpich-dev
-        - sudo pip install mpi4py
-        - sudo pip install numpy
-        - sudo pip install -U pytest pytest-cov
     - os: osx
       addons:
         apt_packages:
@@ -25,14 +19,32 @@ matrix:
         - TESTS="not mpi"
         #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
         #- CMAKE_COVERAGE_FLAGS=""
-      before_install:
-        - brew update > /dev/null
-        #- brew uninstall --ignore-dependencies gcc
-        #- brew install gcc > /dev/null
-        - which g++
-        - which gfortran
-        - export FC=gfortran
-        - sudo pip install -U pytest pytest-cov
+    - os: osx
+      addons:
+        apt_packages:
+          - gfortran
+      env: 
+        - LAMMPS_INSTALL="serial"
+        - TESTS="not mpi"
+        - MPI=openmpi
+        #- CODECOV_TOKEN="99465b5f-26b4-4487-8355-fbcac5249a05"
+        #- CMAKE_COVERAGE_FLAGS=""
+
+before_install:
+  - |
+    if [ "$TRAVIS_OS_NAME" == "linux" ]; then
+        sudo apt-get install gfortran
+        sudo apt-get install mpich libmpich-dev
+        sudo pip install mpi4py
+        sudo pip install numpy
+    elif [ "$TRAVIS_OS_NAME" == "osx" ]; then
+      brew update > /dev/null
+      if [ "$MPI" != "" ]; then
+         brew install $MPI
+      fi
+    fi
+  - export FC=gfortran
+  - sudo pip install -U pytest pytest-cov
 
 install:
   # Make local install build
@@ -48,7 +60,7 @@ install:
 
   # Install lammps
   - cd ../../
-  - git clone https://github.com/MolSSI/lammps.git
+  - git clone https://github.com/MolSSI-MDI/lammps.git
   - cd lammps
   - git checkout mdi
   - cd dev
@@ -70,8 +82,6 @@ install:
   - make yes-user-mdi
   - cd ../lib/mdi
   - python Install.py -m gcc
-  #- cd ../reax
-  #- python Install.py -m gfortran
   - cd ../../src
   
   # Build LAMMPS
