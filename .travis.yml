@@ -40,7 +40,9 @@ before_install:
   - |
     if [ "$TRAVIS_OS_NAME" == "osx" ]; then
       brew update > /dev/null
-      brew install $MPI
+      if [ "$MPI" != "" ]; then
+         brew install $MPI
+      fi
     fi
   - which g++
   - which gfortran
