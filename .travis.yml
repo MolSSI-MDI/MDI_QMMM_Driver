@@ -63,8 +63,6 @@ install:
 
   # Install lammps
   - cd ../../
-  #- cp ${BASE_PATH}/tools/lammps_build.sh .
-  #- ./lammps_build.sh
   - ${BASE_PATH}/tools/lammps_build.sh
   
   # Return to the driver
